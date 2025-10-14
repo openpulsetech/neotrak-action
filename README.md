@@ -5,9 +5,7 @@ A comprehensive security scanning GitHub Action that integrates multiple securit
 ## Features
 
 - **Trivy Scanner**: Container and filesystem vulnerability scanning
-- **Grype Scanner**: Fast vulnerability scanning for container images and filesystems
-- **Snyk Scanner**: Developer-first security scanning (planned)
-- **Semgrep Scanner**: Static analysis security scanning (planned)
+
 
 ## Usage
 
@@ -21,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: NeoTrack Security Scan
-        uses: your-org/neotrack-action@v1
+        uses: openpulsetech/neotrack-action@v1
         with:
           scan-type: 'all'
           severity: 'medium,high,critical'
@@ -44,6 +42,4 @@ jobs:
 ## License
 
 MIT
-# neotrak-action
-# neotrak-action
 # neotrak-action
