@@ -1,0 +1,39 @@
+name: 'NeoTrack Security Scanner'
+description: 'Comprehensive security scanning with multiple tools'
+author: 'NeoSpark'
+
+inputs:
+  scan-type:
+    description: 'Type of scan to perform (trivy, grype, snyk, semgrep, all)'
+    required: false
+    default: 'all'
+  severity:
+    description: 'Severity levels to report (low, medium, high, critical)'
+    required: false
+    default: 'high,critical'
+  format:
+    description: 'Output format (sarif, json, table)'
+    required: false
+    default: 'sarif'
+  target:
+    description: 'Target to scan (directory, container image, etc.)'
+    required: false
+    default: '.'
+  fail-on-vulnerabilities:
+    description: 'Fail the action if vulnerabilities are found'
+    required: false
+    default: 'false'
+
+outputs:
+  sarif-file:
+    description: 'Path to the generated SARIF file'
+  scan-results:
+    description: 'JSON summary of scan results'
+
+runs:
+  using: 'node16'
+  main: 'dist/index.js'
+
+branding:
+  icon: 'shield'
+  color: 'red'
