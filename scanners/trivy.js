@@ -118,68 +118,95 @@ class TrivyScanner {
         ignoreUnfixed
       } = config;
       
+      // Validate scan target exists
+      if (!fs.existsSync(scanTarget)) {
+        throw new Error(`Scan target does not exist: ${scanTarget}`);
+      }
+      
       // Convert severity to uppercase (Trivy expects uppercase)
       const severityUpper = severity.toUpperCase();
       
-      core.info(`🔍 Scanning ${scanTarget} with severity filter: ${severityUpper}`);
+      core.info(`🔍 Scanning: ${scanTarget}`);
+      core.info(`🎯 Scan Type: ${scanType}`);
+      core.info(`⚠️  Severity: ${severityUpper}`);
       
       // Create temporary output file for JSON results
       const jsonOutputPath = path.join(os.tmpdir(), `trivy-scan-results-${Date.now()}.json`);
       
-      // Build command arguments - FIXED: removed duplicate format/output
+      // Build command arguments
       const args = [
         scanType,
         '--severity', severityUpper,
         '--format', 'json',
         '--output', jsonOutputPath,
-        '--exit-code', '0' // Always return 0, we handle failures in orchestrator
+        '--exit-code', '0', // Always return 0, we handle failures in orchestrator
+        '--quiet' // Reduce noise
       ];
       
       if (ignoreUnfixed) {
         args.push('--ignore-unfixed');
       }
       
+      // Add skip dirs to avoid scanning action's own files
+      args.push('--skip-dirs', 'node_modules,.git,.github');
+      
       args.push(scanTarget);
       
-      core.info(`📝 Trivy command: ${SCANNER_BINARY} ${args.join(' ')}`);
+      core.info(`📝 Running: ${SCANNER_BINARY} ${args.join(' ')}`);
       
       // Execute scan
-      let output = '';
-      let errorOutput = '';
+      let stdoutOutput = '';
+      let stderrOutput = '';
       
       const options = {
         listeners: {
           stdout: (data) => {
-            const text = data.toString();
-            output += text;
-            core.info(text.trim());
+            stdoutOutput += data.toString();
           },
           stderr: (data) => {
-            const text = data.toString();
-            errorOutput += text;
-            core.warning(text.trim());
+            stderrOutput += data.toString();
           }
         },
-        ignoreReturnCode: true
+        ignoreReturnCode: true,
+        cwd: path.dirname(scanTarget)
       };
       
       const exitCode = await exec.exec(SCANNER_BINARY, args, options);
-      core.info(`✅ Trivy scan completed with exit code: ${exitCode}`);
+      
+      core.info(`✅ Scan completed with exit code: ${exitCode}`);
+      
+      // Log any stderr (but not as error if exit code is 0)
+      if (stderrOutput && exitCode !== 0) {
+        core.warning(`Stderr output: ${stderrOutput}`);
+      }
       
       // Parse results
       core.info(`📄 Reading results from: ${jsonOutputPath}`);
+      
+      // Check if file was created
+      if (!fs.existsSync(jsonOutputPath)) {
+        core.error(`❌ Output file was not created: ${jsonOutputPath}`);
+        core.error(`Stdout: ${stdoutOutput}`);
+        core.error(`Stderr: ${stderrOutput}`);
+        throw new Error('Trivy did not produce output file');
+      }
+      
       const results = this.parseResults(jsonOutputPath);
       
       // Clean up
-      if (fs.existsSync(jsonOutputPath)) {
-        fs.unlinkSync(jsonOutputPath);
+      try {
+        if (fs.existsSync(jsonOutputPath)) {
+          fs.unlinkSync(jsonOutputPath);
+        }
+      } catch (cleanupError) {
+        core.debug(`Failed to cleanup temp file: ${cleanupError.message}`);
       }
       
       return results;
       
     } catch (error) {
       core.error(`❌ Trivy scan failed: ${error.message}`);
-      core.error(`Stack: ${error.stack}`);
+      core.debug(`Stack: ${error.stack}`);
       throw error;
     }
   }
@@ -201,6 +228,9 @@ class TrivyScanner {
         };
       }
       
+      const stats = fs.statSync(jsonPath);
+      core.info(`📊 JSON file size: ${stats.size} bytes`);
+      
       const jsonContent = fs.readFileSync(jsonPath, 'utf8');
       
       if (!jsonContent || jsonContent.trim() === '') {
@@ -215,7 +245,8 @@ class TrivyScanner {
         };
       }
       
-      core.info(`📊 Parsing JSON results (${jsonContent.length} bytes)`);
+      core.debug(`First 200 chars of JSON: ${jsonContent.substring(0, 200)}`);
+      
       const data = JSON.parse(jsonContent);
       
       let criticalCount = 0;
@@ -226,11 +257,13 @@ class TrivyScanner {
       
       // Check if Results exists and has data
       if (data.Results && Array.isArray(data.Results)) {
-        core.info(`📦 Found ${data.Results.length} result(s) to process`);
+        core.info(`📦 Processing ${data.Results.length} result(s)`);
         
         data.Results.forEach((result, idx) => {
+          core.debug(`Result ${idx + 1}: Type=${result.Type}, Target=${result.Target}`);
+          
           if (result.Vulnerabilities && Array.isArray(result.Vulnerabilities)) {
-            core.info(`   Result ${idx + 1}: ${result.Vulnerabilities.length} vulnerabilities`);
+            core.info(`   📋 Result ${idx + 1} (${result.Type || 'unknown'}): ${result.Vulnerabilities.length} vulnerabilities`);
             
             result.Vulnerabilities.forEach(vuln => {
               vulnerabilities.push({
@@ -258,19 +291,21 @@ class TrivyScanner {
               }
             });
           } else {
-            core.info(`   Result ${idx + 1}: No vulnerabilities found`);
+            core.info(`   ✅ Result ${idx + 1} (${result.Type || 'unknown'}): No vulnerabilities`);
           }
         });
       } else {
         core.warning('⚠️ No Results array found in JSON output');
-        core.debug(`JSON structure: ${JSON.stringify(Object.keys(data))}`);
+        if (data) {
+          core.debug(`JSON keys: ${Object.keys(data).join(', ')}`);
+        }
       }
       
       const totalCount = criticalCount + highCount + mediumCount + lowCount;
       
       // Log scanner-specific results
-      core.info(`\n✨ Trivy Scan Summary:`);
-      core.info(`   Total: ${totalCount} vulnerabilities`);
+      core.info(`\n✨ Trivy Scan Complete:`);
+      core.info(`   📊 Total: ${totalCount} vulnerabilities`);
       core.info(`   🔴 Critical: ${criticalCount}`);
       core.info(`   🟠 High: ${highCount}`);
       core.info(`   🟡 Medium: ${mediumCount}`);
@@ -287,7 +322,7 @@ class TrivyScanner {
       
     } catch (error) {
       core.error(`❌ Failed to parse Trivy results: ${error.message}`);
-      core.error(`Stack: ${error.stack}`);
+      core.debug(`Stack: ${error.stack}`);
       return {
         total: 0,
         critical: 0,
@@ -302,7 +337,6 @@ class TrivyScanner {
 
 // Export singleton instance
 module.exports = new TrivyScanner();
-
 
 // const core = require('@actions/core');
 // const exec = require('@actions/exec');
