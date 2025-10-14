@@ -14,13 +14,13 @@ module.exports = {
   resolve: {
     extensions: ['.js', '.json']
   },
-  externals: {
-    // Keep these as external dependencies
-    '@actions/core': 'commonjs @actions/core',
-    '@actions/exec': 'commonjs @actions/exec',
-    '@actions/github': 'commonjs @actions/github',
-    '@actions/tool-cache': 'commonjs @actions/tool-cache'
-  },
+  // externals: {
+  //   // Keep these as external dependencies
+  //   '@actions/core': 'commonjs @actions/core',
+  //   '@actions/exec': 'commonjs @actions/exec',
+  //   '@actions/github': 'commonjs @actions/github',
+  //   '@actions/tool-cache': 'commonjs @actions/tool-cache'
+  // },
   optimization: {
     minimize: false
   },
