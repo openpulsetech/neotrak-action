@@ -1,7 +1,7 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
 const trivyScanner = require('./scanners/trivy');
-const cdxgenScanner = require('./scanners/cdxgen');
+const cdxgenScanner = require('./scanners/sbom');
 const path = require('path');
 // Future scanners can be imported here
 // const grypeScanner = require('./scanners/grype');
