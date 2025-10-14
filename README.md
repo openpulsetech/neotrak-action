@@ -1,4 +1,4 @@
-# NeoTrack Action
+# NeoTrak Action
 
 A comprehensive security scanning GitHub Action that integrates multiple security tools to provide thorough vulnerability and configuration analysis.
 
