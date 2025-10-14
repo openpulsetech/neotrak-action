@@ -16362,11 +16362,11 @@ class CdxgenScanner {
       let downloadUrl;
 
       if (platform === 'linux') {
-        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-${CDXGEN_VERSION}-linux-${arch}.tar.gz`;
+        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-linux-amd64-slim`;
       } else if (platform === 'darwin') {
-        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-${CDXGEN_VERSION}-macOS-${arch}.tar.gz`;
+        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-darwin-arm64`;
       } else if (platform === 'win32') {
-        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-${CDXGEN_VERSION}-windows-${arch}.zip`;
+        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-windows-amd64-slim.exe`;
       }
 
       core.debug(`Downloading from: ${downloadUrl}`);
