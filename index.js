@@ -1,6 +1,7 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
 const trivyScanner = require('./scanners/trivy');
+const path = require('path');
 // Future scanners can be imported here
 // const grypeScanner = require('./scanners/grype');
 // const snykScanner = require('./scanners/snyk');
@@ -16,6 +17,16 @@ class NTUSecurityOrchestrator {
       low: 0,
       scannerResults: []
     };
+  }
+
+   /**
+   * Get the workspace directory (the calling project's directory)
+   */
+  getWorkspaceDirectory() {
+    // GitHub Actions sets GITHUB_WORKSPACE to the repository directory
+    const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+    core.info(`🏠 Workspace directory: ${workspace}`);
+    return workspace;
   }
 
   /**
@@ -56,6 +67,13 @@ class NTUSecurityOrchestrator {
     const severity = core.getInput('severity') || 'HIGH,CRITICAL';
     const ignoreUnfixed = core.getInput('ignore-unfixed') === 'true';
     
+    
+    // Get the workspace directory and resolve the scan target relative to it
+    const workspaceDir = this.getWorkspaceDirectory();
+    const resolvedTarget = path.isAbsolute(scanTarget) 
+      ? scanTarget 
+      : path.resolve(workspaceDir, scanTarget);
+
     core.info(`📍 Target: ${scanTarget}`);
     core.info(`🎯 Scan Type: ${scanType}`);
     core.info(`⚠️  Severity Filter: ${severity}`);
@@ -66,7 +84,8 @@ class NTUSecurityOrchestrator {
       severity,
       ignoreUnfixed,
       format: core.getInput('format') || 'table',
-      exitCode: core.getInput('exit-code') || '1'
+      exitCode: core.getInput('exit-code') || '1',
+      workspaceDir
     };
 
     for (const scanner of this.scanners) {
