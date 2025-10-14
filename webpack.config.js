@@ -15,11 +15,8 @@ module.exports = {
     extensions: ['.js', '.json']
   },
   externals: {
-    // Keep these as external dependencies
-    '@actions/core': 'commonjs @actions/core',
-    '@actions/exec': 'commonjs @actions/exec',
-    '@actions/github': 'commonjs @actions/github',
-    '@actions/tool-cache': 'commonjs @actions/tool-cache'
+    // Bundle all dependencies for GitHub Actions deployment
+    // No external dependencies needed
   },
   optimization: {
     minimize: false
