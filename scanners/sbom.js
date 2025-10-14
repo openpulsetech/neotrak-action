@@ -1,11 +1,11 @@
 const core = require('@actions/core');
 const exec = require('@actions/exec');
-const tc = require('@actions/tool-cache');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
-const CDXGEN_VERSION = 'v11.9.0';
+const CDXGEN_PACKAGE = '@cyclonedx/cdxgen';
+const CDXGEN_VERSION = '11.9.0';
 const CDXGEN_BINARY = 'cdxgen';
 
 class CdxgenScanner {
@@ -16,47 +16,40 @@ class CdxgenScanner {
 
   async install() {
     try {
-      const platform = os.platform();
-      const arch = os.arch() === 'x64' ? 'amd64' : os.arch();
-
-      let downloadUrl;
-
-      if (platform === 'linux') {
-        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-linux-amd64-slim`;
-      } else if (platform === 'darwin') {
-        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-darwin-arm64`;
-      } else if (platform === 'win32') {
-        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-windows-amd64-slim.exe`;
+      const installDir = path.join(os.tmpdir(), 'cdxgen-install');
+      core.info(`📦 Installing ${CDXGEN_PACKAGE}@${CDXGEN_VERSION}...`);
+      
+      // Create temporary install directory
+      if (!fs.existsSync(installDir)) {
+        fs.mkdirSync(installDir, { recursive: true });
       }
 
-      core.debug(`Downloading from: ${downloadUrl}`);
-      const downloadPath = await tc.downloadTool(downloadUrl);
-
-      let extractedPath;
-      if (platform === 'win32') {
-        extractedPath = await tc.extractZip(downloadPath);
-      } else {
-        extractedPath = await tc.extractTar(downloadPath);
+      // Install cdxgen locally with specific version
+      const exitCode = await exec.exec('npm', ['install', `${CDXGEN_PACKAGE}@${CDXGEN_VERSION}`], {
+        cwd: installDir
+      });
+      
+      if (exitCode !== 0) {
+        throw new Error(`npm install failed with exit code: ${exitCode}`);
       }
 
-      const originalBinary = platform === 'win32' ? 'cdxgen.exe' : 'cdxgen';
-      const cdxgenPath = path.join(extractedPath, originalBinary);
-
-      if (!fs.existsSync(cdxgenPath)) {
-        throw new Error(`CDXgen binary not found at path: ${cdxgenPath}`);
+      // Find the installed binary
+      const binaryPath = path.join(installDir, 'node_modules', '.bin', CDXGEN_BINARY);
+      
+      if (!fs.existsSync(binaryPath)) {
+        throw new Error(`CDXgen binary not found at: ${binaryPath}`);
       }
 
-      if (platform !== 'win32') {
-        fs.chmodSync(cdxgenPath, '755');
+      // Make binary executable (for Unix systems)
+      if (os.platform() !== 'win32') {
+        fs.chmodSync(binaryPath, '755');
       }
 
-      const cachedPath = await tc.cacheDir(path.dirname(cdxgenPath), 'cdxgen', CDXGEN_VERSION);
-      core.addPath(cachedPath);
-
-      this.binaryPath = path.join(cachedPath, originalBinary);
-      return this.binaryPath;
+      core.info(`✅ ${CDXGEN_BINARY} installed successfully at: ${binaryPath}`);
+      this.binaryPath = binaryPath;
+      return binaryPath;
     } catch (error) {
-      throw new Error(`Failed to install CDXgen: ${error.message}`);
+      throw new Error(`Failed to install ${CDXGEN_PACKAGE}: ${error.message}`);
     }
   }
 
@@ -69,8 +62,8 @@ class CdxgenScanner {
       const outputFilePath = path.join(os.tmpdir(), `sbom-${Date.now()}.json`);
       core.info(`🔍 Generating SBOM for: ${targetDirectory}`);
 
-      const args = ['generate', '--output', outputFilePath, targetDirectory];
-      core.info(`📝 Running: ${CDXGEN_BINARY} ${args.join(' ')}`);
+      const args = ['--output', outputFilePath, targetDirectory];
+      core.info(`📝 Running: ${this.binaryPath} ${args.join(' ')}`);
 
       let stdoutOutput = '';
       let stderrOutput = '';
@@ -84,7 +77,7 @@ class CdxgenScanner {
         cwd: targetDirectory,
       };
 
-      const exitCode = await exec.exec(CDXGEN_BINARY, args, options);
+      const exitCode = await exec.exec(this.binaryPath, args, options);
       core.info(`✅ SBOM generation completed with exit code: ${exitCode}`);
 
       if (!fs.existsSync(outputFilePath)) {
