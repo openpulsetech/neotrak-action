@@ -5,7 +5,7 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 
-const CDXGEN_VERSION = 'v1.0.0';
+const CDXGEN_VERSION = 'v11.9.0';
 const CDXGEN_BINARY = 'cdxgen';
 
 class CdxgenScanner {
@@ -22,11 +22,11 @@ class CdxgenScanner {
       let downloadUrl;
 
       if (platform === 'linux') {
-        downloadUrl = `https://github.com/adeptlabs/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-${CDXGEN_VERSION}-linux-${arch}.tar.gz`;
+        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-${CDXGEN_VERSION}-linux-${arch}.tar.gz`;
       } else if (platform === 'darwin') {
-        downloadUrl = `https://github.com/adeptlabs/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-${CDXGEN_VERSION}-macOS-${arch}.tar.gz`;
+        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-${CDXGEN_VERSION}-macOS-${arch}.tar.gz`;
       } else if (platform === 'win32') {
-        downloadUrl = `https://github.com/adeptlabs/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-${CDXGEN_VERSION}-windows-${arch}.zip`;
+        downloadUrl = `https://github.com/CycloneDX/cdxgen/releases/download/${CDXGEN_VERSION}/cdxgen-${CDXGEN_VERSION}-windows-${arch}.zip`;
       }
 
       core.debug(`Downloading from: ${downloadUrl}`);
