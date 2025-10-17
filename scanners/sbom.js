@@ -103,6 +103,14 @@ class CdxgenScanner {
 
     core.info(`📦 SBOM generated at: ${sbomPath}`);
 
+    // Print the SBOM file content
+    try {
+      const sbomContent = fs.readFileSync(sbomPath, 'utf8');
+      core.info(`📄 SBOM Content: \n${sbomContent}`);
+    } catch (error) {
+      core.error(`❌ Failed to read SBOM file at: ${sbomPath}`);
+    }
+    
     // Return a dummy result since SBOM generation does not detect vulns
     return {
       total: 0,
