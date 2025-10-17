@@ -2,6 +2,7 @@ const core = require('@actions/core');
 const github = require('@actions/github');
 const trivyScanner = require('./scanners/trivy');
 const cdxgenScanner = require('./scanners/sbom');
+const secretDetectorScanner = require('./scanners/secret-detector');
 const path = require('path');
 // Future scanners can be imported here
 // const grypeScanner = require('./scanners/grype');
@@ -244,6 +245,7 @@ async function run() {
     // Register scanners
     orchestrator.registerScanner(trivyScanner);
     orchestrator.registerScanner(cdxgenScanner);
+    orchestrator.registerScanner(secretDetectorScanner);
     // Add more scanners here as needed:
     // orchestrator.registerScanner(grypeScanner);
     // orchestrator.registerScanner(snykScanner);
