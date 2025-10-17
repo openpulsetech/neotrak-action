@@ -16399,7 +16399,8 @@ class CdxgenScanner {
         throw new Error(`Target directory does not exist: ${targetDirectory}`);
       }
 
-      const outputFilePath = path.join(os.tmpdir(), `sbom-${Date.now()}.json`);
+      // const outputFilePath = path.join(os.tmpdir(), `sbom-${Date.now()}.json`);
+      const outputFilePath = path.join(targetDirectory, `sbom-${Date.now()}.json`);
       core.info(`🔍 Generating SBOM for: ${targetDirectory}`);
 
       const args = ['--output', outputFilePath, targetDirectory];
@@ -16445,9 +16446,7 @@ class CdxgenScanner {
 
     // Print the SBOM file content
     try {
-      core.info(`📄 SBOM Content1`);
       const sbomContent = fs.readFileSync(sbomPath, 'utf8');
-      core.info(`📄 SBOM Content2`);
       core.info(`📄 SBOM Content: \n${sbomContent}`);
     } catch (error) {
       core.error(`❌ Failed to read SBOM file at: ${sbomPath}`);

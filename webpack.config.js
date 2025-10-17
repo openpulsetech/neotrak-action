@@ -10,7 +10,7 @@ module.exports = {
     library: {
       type: 'commonjs2'
     }
-  },
+  },  
   resolve: {
     extensions: ['.js', '.json']
   },
