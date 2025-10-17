@@ -16401,6 +16401,7 @@ class CdxgenScanner {
 
       // const outputFilePath = path.join(os.tmpdir(), `sbom-${Date.now()}.json`);
       const outputFilePath = path.join(targetDirectory, `sbom-${Date.now()}.json`);
+      const fullOutputPath = path.resolve(outputFilePath);
       core.info(`🔍 Generating SBOM for: ${targetDirectory}`);
 
       const args = ['--output', outputFilePath, targetDirectory];
@@ -16421,14 +16422,14 @@ class CdxgenScanner {
       const exitCode = await exec.exec(this.binaryPath, args, options);
       core.info(`✅ SBOM generation completed with exit code: ${exitCode}`);
 
-      if (!fs.existsSync(outputFilePath)) {
-        core.error(`❌ Output file not created: ${outputFilePath}`);
+      if (!fs.existsSync(fullOutputPath)) {
+        core.error(`❌ Output file not created: ${fullOutputPath}`);
         core.error(`Stdout: ${stdoutOutput}`);
         core.error(`Stderr: ${stderrOutput}`);
         throw new Error('CDXgen did not generate SBOM output file');
       }
 
-      return outputFilePath;
+      return fullOutputPath;
     } catch (error) {
       core.error(`❌ CDXgen SBOM generation failed: ${error.message}`);
       throw error;
