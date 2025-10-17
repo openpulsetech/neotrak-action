@@ -123,25 +123,53 @@ class CdxgenScanner {
     //   vulnerabilities: [],
     //   sbomPath,
     // };
+    try {
+      // Directly run Trivy scan on the SBOM
+      const trivyArgs = [
+        'sbom', 
+        '--severity', 'HIGH,CRITICAL', // Customize severity level if needed
+        '--format', 'json', 
+        '--output', `${sbomPath}.trivy-results.json`, // Output path for Trivy results
+        sbomPath
+      ];
 
-      // Now, pass the SBOM file to Trivy for vulnerability scanning
-      const trivyScanner = require('./trivy'); // Import the Trivy scanner module
-      const trivyResults = await trivyScanner.scan({ scanTarget: sbomPath, scanType: 'sbom' });
+      core.info(`📝 Running: ${TRIVY_BINARY} ${trivyArgs.join(' ')}`);
 
-      core.info(`📊 Trivy Vulnerability Results: ${JSON.stringify(trivyResults, null, 2)}`);
+      let stdoutOutput = '';
+      let stderrOutput = '';
+
+      const options = {
+        listeners: {
+          stdout: (data) => { stdoutOutput += data.toString(); },
+          stderr: (data) => { stderrOutput += data.toString(); },
+        },
+        ignoreReturnCode: true,
+        cwd: targetDir,
+      };
+
+      const exitCode = await exec.exec(TRIVY_BINARY, trivyArgs, options);
+
+      core.info(`✅ Trivy scan completed with exit code: ${exitCode}`);
       
+      if (exitCode !== 0) {
+        core.warning(`Stderr output: ${stderrOutput}`);
+      }
+
+      // Parse the Trivy results
+      const trivyResults = JSON.parse(stdoutOutput);
+      core.info(`📊 Trivy Vulnerability Results: ${JSON.stringify(trivyResults, null, 2)}`);
+
       return {
-        total: trivyResults.total,
-        critical: trivyResults.critical,
-        high: trivyResults.high,
-        medium: trivyResults.medium,
-        low: trivyResults.low,
-        vulnerabilities: trivyResults.vulnerabilities,
+        total: trivyResults.length,
+        critical: trivyResults.filter(vuln => vuln.Severity === 'CRITICAL').length,
+        high: trivyResults.filter(vuln => vuln.Severity === 'HIGH').length,
+        vulnerabilities: trivyResults, 
         sbomPath,
       };
     } catch (error) {
-      core.error(`❌ Error during scanning: ${error.message}`);
+      core.error(`❌ Trivy scan failed: ${error.message}`);
       throw error;
+    }
   }
 }
 
