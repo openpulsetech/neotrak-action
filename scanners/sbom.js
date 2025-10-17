@@ -3,6 +3,7 @@ const exec = require('@actions/exec');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const trivyScanner = require('./trivy');
 
 const CDXGEN_PACKAGE = '@cyclonedx/cdxgen';
 const CDXGEN_VERSION = '11.9.0';
@@ -133,16 +134,16 @@ class CdxgenScanner {
       throw new Error('Scan type is undefined or invalid.');
     }
     // Now, pass the SBOM file to Trivy for vulnerability scanning
-    const trivyScanner = require('./trivy'); // Import the Trivy scanner module
+    // const trivyScanner = require('./trivy'); // Import the Trivy scanner module
     const severity = config.severity || 'high';
 
     // Log the severity to confirm
     core.info(`🔍 Scan severity: ${severity.toUpperCase()}`);
 
     const trivyResults = await trivyScanner.scan({
-      scanTarget: sbomPath,
-      scanType: scanType,
-      severity: severity, // Ensure that severity is passed correctly
+      scanTarget: sbomPath, // Path to the SBOM file
+      scanType: scanType,  // Type of scan, should be 'sbom'
+      severity: severity,  // The severity level
     });
 
     core.info(`📊 Trivy Vulnerability Results: ${JSON.stringify(trivyResults, null, 2)}`);
