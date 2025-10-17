@@ -16094,7 +16094,7 @@ class CdxgenScanner {
     try {
       const installDir = path.join(os.tmpdir(), 'cdxgen-install');
       core.info(`📦 Installing ${CDXGEN_PACKAGE}@${CDXGEN_VERSION}...`);
-      
+
       // Create temporary install directory
       if (!fs.existsSync(installDir)) {
         fs.mkdirSync(installDir, { recursive: true });
@@ -16104,14 +16104,14 @@ class CdxgenScanner {
       const exitCode = await exec.exec('npm', ['install', `${CDXGEN_PACKAGE}@${CDXGEN_VERSION}`], {
         cwd: installDir
       });
-      
+
       if (exitCode !== 0) {
         throw new Error(`npm install failed with exit code: ${exitCode}`);
       }
 
       // Find the installed binary
       const binaryPath = path.join(installDir, 'node_modules', '.bin', CDXGEN_BINARY);
-      
+
       if (!fs.existsSync(binaryPath)) {
         throw new Error(`CDXgen binary not found at: ${binaryPath}`);
       }
@@ -16199,54 +16199,92 @@ class CdxgenScanner {
     //   vulnerabilities: [],
     //   sbomPath,
     // };
-    try {
-      // Directly run Trivy scan on the SBOM
-      const trivyArgs = [
-        'sbom', 
-        '--severity', 'HIGH,CRITICAL', // Customize severity level if needed
-        '--format', 'json', 
-        '--output', `${sbomPath}.trivy-results.json`, // Output path for Trivy results
-        sbomPath
-      ];
 
-      core.info(`📝 Running: ${TRIVY_BINARY} ${trivyArgs.join(' ')}`);
-
-      let stdoutOutput = '';
-      let stderrOutput = '';
-
-      const options = {
-        listeners: {
-          stdout: (data) => { stdoutOutput += data.toString(); },
-          stderr: (data) => { stderrOutput += data.toString(); },
-        },
-        ignoreReturnCode: true,
-        cwd: targetDir,
-      };
-
-      const exitCode = await exec.exec(TRIVY_BINARY, trivyArgs, options);
-
-      core.info(`✅ Trivy scan completed with exit code: ${exitCode}`);
-      
-      if (exitCode !== 0) {
-        core.warning(`Stderr output: ${stderrOutput}`);
-      }
-
-      // Parse the Trivy results
-      const trivyResults = JSON.parse(stdoutOutput);
-      core.info(`📊 Trivy Vulnerability Results: ${JSON.stringify(trivyResults, null, 2)}`);
-
-      return {
-        total: trivyResults.length,
-        critical: trivyResults.filter(vuln => vuln.Severity === 'CRITICAL').length,
-        high: trivyResults.filter(vuln => vuln.Severity === 'HIGH').length,
-        vulnerabilities: trivyResults, 
-        sbomPath,
-      };
-    } catch (error) {
-      core.error(`❌ Trivy scan failed: ${error.message}`);
-      throw error;
+    // Ensure SBOM exists before passing to Trivy
+    if (!fs.existsSync(sbomPath)) {
+      throw new Error(`SBOM file does not exist at: ${sbomPath}`);
     }
+    const scanType = config.scanType || 'sbom';
+    if (!scanType) {
+      throw new Error('Scan type is undefined or invalid.');
+    }
+    // Now, pass the SBOM file to Trivy for vulnerability scanning
+    const trivyScanner = __webpack_require__(3513); // Import the Trivy scanner module
+    const severity = config.severity || 'high';
+
+    // Log the severity to confirm
+    core.info(`🔍 Scan severity: ${severity.toUpperCase()}`);
+
+    const trivyResults = await trivyScanner.scan({
+      scanTarget: sbomPath,
+      scanType: scanType,
+      severity: severity, // Ensure that severity is passed correctly
+    });
+
+    core.info(`📊 Trivy Vulnerability Results: ${JSON.stringify(trivyResults, null, 2)}`);
+
+    return {
+      total: trivyResults.total,
+      critical: trivyResults.critical,
+      high: trivyResults.high,
+      medium: trivyResults.medium,
+      low: trivyResults.low,
+      vulnerabilities: trivyResults.vulnerabilities,
+      sbomPath,
+    };
+  } catch(error) {
+    core.error(`❌ Error during scanning: ${error.message}`);
+    core.debug(`Stack trace: ${error.stack}`);
+    throw error;
   }
+
+  //  try {
+  //     // Directly run Trivy scan on the SBOM
+  //     const trivyArgs = [
+  //       'sbom', 
+  //       '--severity', 'HIGH,CRITICAL', // Customize severity level if needed
+  //       '--format', 'json', 
+  //       '--output', `${sbomPath}.trivy-results.json`, // Output path for Trivy results
+  //       sbomPath
+  //     ];
+
+  //     core.info(`📝 Running: ${TRIVY_BINARY} ${trivyArgs.join(' ')}`);
+
+  //     let stdoutOutput = '';
+  //     let stderrOutput = '';
+
+  //     const options = {
+  //       listeners: {
+  //         stdout: (data) => { stdoutOutput += data.toString(); },
+  //         stderr: (data) => { stderrOutput += data.toString(); },
+  //       },
+  //       ignoreReturnCode: true,
+  //       cwd: targetDir,
+  //     };
+
+  //     const exitCode = await exec.exec(TRIVY_BINARY, trivyArgs, options);
+
+  //     core.info(`✅ Trivy scan completed with exit code: ${exitCode}`);
+
+  //     if (exitCode !== 0) {
+  //       core.warning(`Stderr output: ${stderrOutput}`);
+  //     }
+
+  //     // Parse the Trivy results
+  //     const trivyResults = JSON.parse(stdoutOutput);
+  //     core.info(`📊 Trivy Vulnerability Results: ${JSON.stringify(trivyResults, null, 2)}`);
+
+  //     return {
+  //       total: trivyResults.length,
+  //       critical: trivyResults.filter(vuln => vuln.Severity === 'CRITICAL').length,
+  //       high: trivyResults.filter(vuln => vuln.Severity === 'HIGH').length,
+  //       vulnerabilities: trivyResults, 
+  //       sbomPath,
+  //     };
+  //   } catch (error) {
+  //     core.error(`❌ Trivy scan failed: ${error.message}`);
+  //     throw error;
+  //   }
 }
 
 module.exports = new CdxgenScanner();
