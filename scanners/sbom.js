@@ -105,24 +105,43 @@ class CdxgenScanner {
 
     core.info(`📦 SBOM generated at: ${sbomPath}`);
 
-    // Print the SBOM file content
-    try {
-      const sbomContent = fs.readFileSync(sbomPath, 'utf8');
-      core.info(`📄 SBOM Content: \n${sbomContent}`);
-    } catch (error) {
-      core.error(`❌ Failed to read SBOM file at: ${sbomPath}`);
-    }
+    // // Print the SBOM file content
+    // try {
+    //   const sbomContent = fs.readFileSync(sbomPath, 'utf8');
+    //   core.info(`📄 SBOM Content: \n${sbomContent}`);
+    // } catch (error) {
+    //   core.error(`❌ Failed to read SBOM file at: ${sbomPath}`);
+    // }
 
-    // Return a dummy result since SBOM generation does not detect vulns
-    return {
-      total: 0,
-      critical: 0,
-      high: 0,
-      medium: 0,
-      low: 0,
-      vulnerabilities: [],
-      sbomPath,
-    };
+    // // Return a dummy result since SBOM generation does not detect vulns
+    // return {
+    //   total: 0,
+    //   critical: 0,
+    //   high: 0,
+    //   medium: 0,
+    //   low: 0,
+    //   vulnerabilities: [],
+    //   sbomPath,
+    // };
+
+      // Now, pass the SBOM file to Trivy for vulnerability scanning
+      const trivyScanner = require('./trivy'); // Import the Trivy scanner module
+      const trivyResults = await trivyScanner.scan({ scanTarget: sbomPath, scanType: 'sbom' });
+
+      core.info(`📊 Trivy Vulnerability Results: ${JSON.stringify(trivyResults, null, 2)}`);
+      
+      return {
+        total: trivyResults.total,
+        critical: trivyResults.critical,
+        high: trivyResults.high,
+        medium: trivyResults.medium,
+        low: trivyResults.low,
+        vulnerabilities: trivyResults.vulnerabilities,
+        sbomPath,
+      };
+    } catch (error) {
+      core.error(`❌ Error during scanning: ${error.message}`);
+      throw error;
   }
 }
 
