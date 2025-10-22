@@ -16216,12 +16216,14 @@ class CdxgenScanner {
       core.info(`🔍 Generating SBOM for: ${targetDirectory}`);
 
       // const args = ['--output', outputFilePath, targetDirectory];
-      const args = [
-        '--type', 'all',           // Generate comprehensive SBOM
-        '--spec-version', '1.6',   // Force 1.6 (most compatible)
-        '--output', outputFilePath,
-        targetDirectory
-      ];
+     const args = [
+    '--type', 'maven',              // ← FORCE Maven detection
+    '--spec-version', '1.6',
+    '--deep',                       // ← Scan subdirectories
+    '--print',                      // ← Debug what it finds
+    '--output', outputFilePath,
+    targetDirectory
+  ];
       core.info(`📝 Running: ${this.binaryPath} ${args.join(' ')}`);
 
       let stdoutOutput = '';
@@ -16260,89 +16262,57 @@ class CdxgenScanner {
   /**
    * Required by orchestrator
    */
-  async scan(config) {
-    try {
-      const targetDir = config.scanTarget || '.';
-      const sbomPath = await this.generateSBOM(targetDir);
+ async scan(config) {
+  try {
+    const targetDir = config.scanTarget || '.';
+    const sbomPath = await this.generateSBOM(targetDir);
+    
+    core.info(`📦 SBOM generated: ${sbomPath}`);
 
-      core.info(`📦 SBOM generated at: ${sbomPath}`);
+    this.trivyBinaryPath = await this.installTrivy();
+    
+    // EXACTLY your PowerShell command
+    const trivyOutputPath = path.join(os.tmpdir(), `trivy-sbom-${Date.now()}.json`);
+    
+    const trivyArgs = [
+      'sbom',
+      '--format', 'json',
+      sbomPath
+    ];
 
-      this.trivyBinaryPath = await this.installTrivy();
-      const severity = config.severity || 'high';
-
-      core.info(`🔍 Scan severity: ${severity.toUpperCase()}`);
-
-      const trivyOutputPath = path.join(os.tmpdir(), `trivy-results-${Date.now()}.json`);
-      const TRIVY_BINARY = this.trivyBinaryPath;
-
-      const trivyArgs = [
-        'sbom',
-        '--format', 'json',
-        '--output', trivyOutputPath,
-        sbomPath
-      ];
-
-      let stdoutOutput = '';
-      let stderrOutput = '';
-
-      const options = {
-        listeners: {
-          stdout: (data) => { stdoutOutput += data.toString(); },
-          stderr: (data) => { stderrOutput += data.toString(); },
-        },
-        ignoreReturnCode: false,
-        cwd: targetDir,
-      };
-
-      try {
-        const exitCode = await exec.exec(TRIVY_BINARY, trivyArgs, options);
-        core.info(`✅ Trivy scan completed with exit code: ${exitCode}`);
-      } catch (error) {
-        core.error(`❌ Trivy execution failed: ${error.message}`);
-        throw error;
-      }
-
-      if (!fs.existsSync(trivyOutputPath)) {
-        throw new Error(`Trivy output file not found: ${trivyOutputPath}`);
-      }
-
-      const trivyJson = JSON.parse(fs.readFileSync(trivyOutputPath, 'utf8'));
-      const allVulns = (trivyJson.Results || []).flatMap(r => r.Vulnerabilities || []);
-
-      const countBySeverity = {
-        CRITICAL: 0,
-        HIGH: 0,
-        MEDIUM: 0,
-        LOW: 0,
-        UNKNOWN: 0,
-      };
-
-      for (const vuln of allVulns) {
-        const sev = (vuln.Severity || 'UNKNOWN').toUpperCase();
-        if (countBySeverity.hasOwnProperty(sev)) {
-          countBySeverity[sev]++;
-        } else {
-          countBySeverity.UNKNOWN++;
+    // Run: trivy sbom --format json "sbom.json" > trivy-sbom.json
+    await exec.exec(this.trivyBinaryPath, trivyArgs, {
+      stdout: 'pipe',
+      stderr: 'pipe',
+      silent: true,
+      listeners: {
+        stdout: (data) => {
+          fs.appendFileSync(trivyOutputPath, data.toString());
         }
       }
+    });
 
-      core.info(`📊 Trivy Vulnerability Summary: ${JSON.stringify(countBySeverity, null, 2)}`);
+    // $data = Get-Content trivy-sbom.json -Raw | ConvertFrom-Json
+    const data = JSON.parse(fs.readFileSync(trivyOutputPath, 'utf8'));
+    
+    // $vulns = $data.Results | ForEach-Object { $_.Vulnerabilities } | Where-Object { $_ } | ForEach-Object { $_ }
+    const vulns = (data.Results || [])
+      .flatMap(result => result.Vulnerabilities || [])
+      .filter(v => v); // Where-Object { $_ }
 
-      return {
-        total: allVulns.length,
-        critical: countBySeverity.CRITICAL,
-        high: countBySeverity.HIGH,
-        medium: countBySeverity.MEDIUM,
-        low: countBySeverity.LOW,
-        vulnerabilities: allVulns,
-        sbomPath,
-      };
-    } catch (error) {
-      core.error(`❌ Error during scanning: ${error.message}`);
-      core.debug(`Stack trace: ${error.stack}`);
-      throw error;
-    }
+    // $vulns.Count
+    core.info(`📊 Total vulnerabilities: ${vulns.length}`);
+
+    return {
+      total: vulns.length,
+      vulnerabilities: vulns,
+      sbomPath
+    };
+  } catch (error) {
+    core.error(`❌ Scan failed: ${error.message}`);
+    throw error;
   }
+}
 
 }
 
