@@ -194,10 +194,9 @@ class CdxgenScanner {
 
     this.trivyBinaryPath = await this.installTrivy();
     
-    const trivyOutputPath = path.join(os.tmpdir(), `trivy-sbom-${Date.now()}.json`);
-    
-    // ✅ FIXED: Proper stdout capture
     let stdoutData = '';
+    
+    // Run Trivy: sbom --format json sbom.json
     await exec.exec(this.trivyBinaryPath, [
       'sbom',
       '--format', 'json',
@@ -209,23 +208,59 @@ class CdxgenScanner {
           stdoutData += data.toString();
         }
       },
-      stderr: 'inherit'
+      stderr: 'inherit'  // Shows vulnerability details
     });
 
-    // Write complete output to file
-    fs.writeFileSync(trivyOutputPath, stdoutData);
-
-    if (!fs.existsSync(trivyOutputPath) || stdoutData.trim() === '') {
-      throw new Error('Trivy output file not created or empty');
+    if (stdoutData.trim() === '') {
+      core.warning('⚠️  No vulnerabilities found');
+      return {
+        total: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        vulnerabilities: [],
+        sbomPath
+      };
     }
 
-    const data = JSON.parse(stdoutData);  // Parse directly from memory
+    // Parse Trivy JSON output
+    const data = JSON.parse(stdoutData);
     const vulns = (data.Results || []).flatMap(r => r.Vulnerabilities || []).filter(v => v);
     
-    core.info(`📊 Found ${vulns.length} vulnerabilities`);
+    // Count by severity
+    const countBySeverity = {
+      CRITICAL: 0,
+      HIGH: 0,
+      MEDIUM: 0,
+      LOW: 0,
+      UNKNOWN: 0
+    };
     
+    vulns.forEach(vuln => {
+      const sev = (vuln.Severity || 'UNKNOWN').toUpperCase();
+      if (countBySeverity[sev] !== undefined) {
+        countBySeverity[sev]++;
+      } else {
+        countBySeverity.UNKNOWN++;
+      }
+    });
+
+    // Pretty summary
+    core.info(`📊 Vulnerability Summary:`);
+    core.info(`   CRITICAL: ${countBySeverity.CRITICAL}`);
+    core.info(`   HIGH:     ${countBySeverity.HIGH}`);
+    core.info(`   MEDIUM:   ${countBySeverity.MEDIUM}`);
+    core.info(`   LOW:      ${countBySeverity.LOW}`);
+    core.info(`   TOTAL:    ${vulns.length}`);
+
     return {
       total: vulns.length,
+      critical: countBySeverity.CRITICAL,
+      high: countBySeverity.HIGH,
+      medium: countBySeverity.MEDIUM,
+      low: countBySeverity.LOW,
+      unknown: countBySeverity.UNKNOWN,
       vulnerabilities: vulns,
       sbomPath
     };
