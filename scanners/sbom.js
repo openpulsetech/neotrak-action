@@ -196,10 +196,11 @@ class CdxgenScanner {
     
     let stdoutData = '';
     
-    // Run Trivy: sbom --format json sbom.json
+    // ✅ SILENT MODE: No Trivy logs printed
     await exec.exec(this.trivyBinaryPath, [
       'sbom',
       '--format', 'json',
+      '--quiet',           // Hide all logs
       sbomPath
     ], {
       ignoreReturnCode: true,
@@ -208,7 +209,7 @@ class CdxgenScanner {
           stdoutData += data.toString();
         }
       },
-      stderr: 'inherit'  // Shows vulnerability details
+      stderr: 'pipe'       // Don't print stderr
     });
 
     if (stdoutData.trim() === '') {
@@ -224,29 +225,20 @@ class CdxgenScanner {
       };
     }
 
-    // Parse Trivy JSON output
     const data = JSON.parse(stdoutData);
     const vulns = (data.Results || []).flatMap(r => r.Vulnerabilities || []).filter(v => v);
     
-    // Count by severity
     const countBySeverity = {
-      CRITICAL: 0,
-      HIGH: 0,
-      MEDIUM: 0,
-      LOW: 0,
-      UNKNOWN: 0
+      CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0
     };
     
     vulns.forEach(vuln => {
       const sev = (vuln.Severity || 'UNKNOWN').toUpperCase();
       if (countBySeverity[sev] !== undefined) {
         countBySeverity[sev]++;
-      } else {
-        countBySeverity.UNKNOWN++;
       }
     });
 
-    // Pretty summary
     core.info(`📊 Vulnerability Summary:`);
     core.info(`   CRITICAL: ${countBySeverity.CRITICAL}`);
     core.info(`   HIGH:     ${countBySeverity.HIGH}`);
@@ -260,7 +252,6 @@ class CdxgenScanner {
       high: countBySeverity.HIGH,
       medium: countBySeverity.MEDIUM,
       low: countBySeverity.LOW,
-      unknown: countBySeverity.UNKNOWN,
       vulnerabilities: vulns,
       sbomPath
     };
