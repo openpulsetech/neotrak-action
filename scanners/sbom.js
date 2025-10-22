@@ -142,9 +142,8 @@ class CdxgenScanner {
       // const args = ['--output', outputFilePath, targetDirectory];
      const args = [
     '--type', 'maven',              // ← FORCE Maven detection
-    '--spec-version', '1.6',
+    '--spec-version', '1.4',
     '--deep',                       // ← Scan subdirectories
-    '--print',                      // ← Debug what it finds
     '--output', outputFilePath,
     targetDirectory
   ];
@@ -197,29 +196,30 @@ class CdxgenScanner {
     
     const trivyOutputPath = path.join(os.tmpdir(), `trivy-sbom-${Date.now()}.json`);
     
-    // ✅ CRITICAL: ignoreReturnCode: true
+    // ✅ FIXED: Proper stdout capture
+    let stdoutData = '';
     await exec.exec(this.trivyBinaryPath, [
       'sbom',
       '--format', 'json',
       sbomPath
     ], {
-      ignoreReturnCode: true,  // ← THIS FIXES EXIT CODE 1
-      stdout: 'pipe',
-      stderr: 'inherit',       // Show Trivy logs
-      silent: false,
+      ignoreReturnCode: true,
       listeners: {
         stdout: (data) => {
-          fs.appendFileSync(trivyOutputPath, data.toString());
+          stdoutData += data.toString();
         }
-      }
+      },
+      stderr: 'inherit'
     });
 
-    // ✅ Check if output exists
-    if (!fs.existsSync(trivyOutputPath)) {
-      throw new Error('Trivy output file not created');
+    // Write complete output to file
+    fs.writeFileSync(trivyOutputPath, stdoutData);
+
+    if (!fs.existsSync(trivyOutputPath) || stdoutData.trim() === '') {
+      throw new Error('Trivy output file not created or empty');
     }
 
-    const data = JSON.parse(fs.readFileSync(trivyOutputPath, 'utf8'));
+    const data = JSON.parse(stdoutData);  // Parse directly from memory
     const vulns = (data.Results || []).flatMap(r => r.Vulnerabilities || []).filter(v => v);
     
     core.info(`📊 Found ${vulns.length} vulnerabilities`);
