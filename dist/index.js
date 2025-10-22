@@ -16271,20 +16271,18 @@ class CdxgenScanner {
 
     this.trivyBinaryPath = await this.installTrivy();
     
-    // EXACTLY your PowerShell command
     const trivyOutputPath = path.join(os.tmpdir(), `trivy-sbom-${Date.now()}.json`);
     
-    const trivyArgs = [
+    // ✅ CRITICAL: ignoreReturnCode: true
+    await exec.exec(this.trivyBinaryPath, [
       'sbom',
       '--format', 'json',
       sbomPath
-    ];
-
-    // Run: trivy sbom --format json "sbom.json" > trivy-sbom.json
-    await exec.exec(this.trivyBinaryPath, trivyArgs, {
+    ], {
+      ignoreReturnCode: true,  // ← THIS FIXES EXIT CODE 1
       stdout: 'pipe',
-      stderr: 'pipe',
-      silent: true,
+      stderr: 'inherit',       // Show Trivy logs
+      silent: false,
       listeners: {
         stdout: (data) => {
           fs.appendFileSync(trivyOutputPath, data.toString());
@@ -16292,22 +16290,22 @@ class CdxgenScanner {
       }
     });
 
-    // $data = Get-Content trivy-sbom.json -Raw | ConvertFrom-Json
+    // ✅ Check if output exists
+    if (!fs.existsSync(trivyOutputPath)) {
+      throw new Error('Trivy output file not created');
+    }
+
     const data = JSON.parse(fs.readFileSync(trivyOutputPath, 'utf8'));
+    const vulns = (data.Results || []).flatMap(r => r.Vulnerabilities || []).filter(v => v);
     
-    // $vulns = $data.Results | ForEach-Object { $_.Vulnerabilities } | Where-Object { $_ } | ForEach-Object { $_ }
-    const vulns = (data.Results || [])
-      .flatMap(result => result.Vulnerabilities || [])
-      .filter(v => v); // Where-Object { $_ }
-
-    // $vulns.Count
-    core.info(`📊 Total vulnerabilities: ${vulns.length}`);
-
+    core.info(`📊 Found ${vulns.length} vulnerabilities`);
+    
     return {
       total: vulns.length,
       vulnerabilities: vulns,
       sbomPath
     };
+    
   } catch (error) {
     core.error(`❌ Scan failed: ${error.message}`);
     throw error;
