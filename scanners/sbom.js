@@ -174,7 +174,9 @@ class CdxgenScanner {
       const sbomJson = JSON.parse(sbomContent);
       const specVersion = sbomJson.specVersion || sbomJson.bomFormat;
       core.info(`✅ SBOM spec version: ${specVersion}`);
+      core.info(`📦 Components: ${sbomJson.components?.length || 0}`);
       core.info(`📦 SBOM FILE CONTENT:\n${sbomContent}`);
+
       return fullOutputPath;
     } catch (error) {
       core.error(`❌ CDXgen SBOM generation failed: ${error.message}`);
