@@ -16076,6 +16076,7 @@ module.exports = {
 
 const core = __webpack_require__(6977);
 const exec = __webpack_require__(6665);
+const tc = __webpack_require__(9358);
 const os = __webpack_require__(857);
 const fs = __webpack_require__(9896);
 const path = __webpack_require__(6928);
@@ -16089,6 +16090,85 @@ class CdxgenScanner {
     this.name = 'CDXgen SBOM Generator';
     this.binaryPath = null;
   }
+
+  async installTrivy() {
+  try {
+    const TRIVY_VERSION = 'v0.48.0';
+    const SCANNER_BINARY = 'ntu-scanner-trivy';
+
+    // Setup environment for local testing (optional, similar to your example)
+    if (!process.env.RUNNER_TEMP) {
+      process.env.RUNNER_TEMP = os.tmpdir();
+    }
+    if (!process.env.RUNNER_TOOL_CACHE) {
+      process.env.RUNNER_TOOL_CACHE = path.join(os.homedir(), '.cache', 'actions');
+    }
+    if (!process.env.RUNNER_WORKSPACE) {
+      process.env.RUNNER_WORKSPACE = process.cwd();
+    }
+    if (!process.env.GITHUB_WORKSPACE) {
+      process.env.GITHUB_WORKSPACE = process.cwd();
+    }
+    if (!fs.existsSync(process.env.RUNNER_TOOL_CACHE)) {
+      fs.mkdirSync(process.env.RUNNER_TOOL_CACHE, { recursive: true });
+    }
+
+    const platform = os.platform();
+    const arch = os.arch() === 'x64' ? 'amd64' : os.arch();
+
+    let downloadUrl;
+
+    if (platform === 'linux') {
+      downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v', '')}_Linux-${arch === 'amd64' ? '64bit' : 'ARM64'}.tar.gz`;
+    } else if (platform === 'darwin') {
+      downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v', '')}_macOS-${arch === 'amd64' ? '64bit' : 'ARM64'}.tar.gz`;
+    } else if (platform === 'win32') {
+      downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v', '')}_windows-${arch === 'amd64' ? '64bit' : 'ARM64'}.zip`;
+    } else {
+      throw new Error(`Unsupported platform: ${platform}`);
+    }
+
+    core.debug(`Downloading Trivy from: ${downloadUrl}`);
+    const downloadPath = await tc.downloadTool(downloadUrl);
+
+    let extractedPath;
+    if (platform === 'win32') {
+      extractedPath = await tc.extractZip(downloadPath);
+    } else {
+      extractedPath = await tc.extractTar(downloadPath);
+    }
+
+    const originalBinary = platform === 'win32' ? 'trivy.exe' : 'trivy';
+    const newBinary = platform === 'win32' ? `${SCANNER_BINARY}.exe` : SCANNER_BINARY;
+
+    const trivyPath = path.join(extractedPath, originalBinary);
+    const scannerPath = path.join(extractedPath, newBinary);
+
+    if (fs.existsSync(trivyPath)) {
+      fs.renameSync(trivyPath, scannerPath);
+    }
+
+    if (platform !== 'win32') {
+      fs.chmodSync(scannerPath, '755');
+    }
+
+    const cachedPath = await tc.cacheDir(
+      path.dirname(scannerPath),
+      'ntu-scanner-trivy',
+      TRIVY_VERSION
+    );
+
+    core.addPath(cachedPath);
+
+    this.trivyBinaryPath = path.join(cachedPath, newBinary);
+    core.info(`✅ Trivy installed at: ${this.trivyBinaryPath}`);
+
+    return this.trivyBinaryPath;
+
+  } catch (error) {
+    throw new Error(`Failed to install Trivy: ${error.message}`);
+  }
+}
 
   async install() {
     try {
@@ -16181,11 +16261,7 @@ class CdxgenScanner {
 
     core.info(`📦 SBOM generated at: ${sbomPath}`);
 
-    // Ensure SBOM exists before passing to Trivy
-    if (!fs.existsSync(sbomPath)) {
-      throw new Error(`SBOM file does not exist at: ${sbomPath}`);
-    }
- 
+    await this.installTrivy();
     const severity = config.severity || 'high';
 
     // Log the severity to confirm
@@ -16261,54 +16337,6 @@ class CdxgenScanner {
     core.debug(`Stack trace: ${error.stack}`);
     throw error;
   }
-
-  //  try {
-  //     // Directly run Trivy scan on the SBOM
-  //     const trivyArgs = [
-  //       'sbom', 
-  //       '--severity', 'HIGH,CRITICAL', // Customize severity level if needed
-  //       '--format', 'json', 
-  //       '--output', `${sbomPath}.trivy-results.json`, // Output path for Trivy results
-  //       sbomPath
-  //     ];
-
-  //     core.info(`📝 Running: ${TRIVY_BINARY} ${trivyArgs.join(' ')}`);
-
-  //     let stdoutOutput = '';
-  //     let stderrOutput = '';
-
-  //     const options = {
-  //       listeners: {
-  //         stdout: (data) => { stdoutOutput += data.toString(); },
-  //         stderr: (data) => { stderrOutput += data.toString(); },
-  //       },
-  //       ignoreReturnCode: true,
-  //       cwd: targetDir,
-  //     };
-
-  //     const exitCode = await exec.exec(TRIVY_BINARY, trivyArgs, options);
-
-  //     core.info(`✅ Trivy scan completed with exit code: ${exitCode}`);
-
-  //     if (exitCode !== 0) {
-  //       core.warning(`Stderr output: ${stderrOutput}`);
-  //     }
-
-  //     // Parse the Trivy results
-  //     const trivyResults = JSON.parse(stdoutOutput);
-  //     core.info(`📊 Trivy Vulnerability Results: ${JSON.stringify(trivyResults, null, 2)}`);
-
-  //     return {
-  //       total: trivyResults.length,
-  //       critical: trivyResults.filter(vuln => vuln.Severity === 'CRITICAL').length,
-  //       high: trivyResults.filter(vuln => vuln.Severity === 'HIGH').length,
-  //       vulnerabilities: trivyResults, 
-  //       sbomPath,
-  //     };
-  //   } catch (error) {
-  //     core.error(`❌ Trivy scan failed: ${error.message}`);
-  //     throw error;
-  //   }
 }
 
 module.exports = new CdxgenScanner();
