@@ -16089,6 +16089,7 @@ class CdxgenScanner {
   constructor() {
     this.name = 'CDXgen SBOM Generator';
     this.binaryPath = null;
+    this.trivyBinaryPath = null;
   }
 
   async installTrivy() {
@@ -16256,19 +16257,19 @@ class CdxgenScanner {
    * Required by orchestrator
    */
   async scan(config) {
+  try {
     const targetDir = config.scanTarget || '.';
     const sbomPath = await this.generateSBOM(targetDir);
 
     core.info(`📦 SBOM generated at: ${sbomPath}`);
 
-    await this.installTrivy();
+    this.trivyBinaryPath = await this.installTrivy();
     const severity = config.severity || 'high';
 
-    // Log the severity to confirm
     core.info(`🔍 Scan severity: ${severity.toUpperCase()}`);
 
     const trivyOutputPath = path.join(os.tmpdir(), `trivy-results-${Date.now()}.json`);
-    const TRIVY_BINARY = 'trivy'; // Assumes Trivy is installed and in PATH
+    const TRIVY_BINARY = this.trivyBinaryPath;
 
     const trivyArgs = [
       'sbom',
@@ -16337,6 +16338,8 @@ class CdxgenScanner {
     core.debug(`Stack trace: ${error.stack}`);
     throw error;
   }
+}
+
 }
 
 module.exports = new CdxgenScanner();
