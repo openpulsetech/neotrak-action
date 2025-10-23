@@ -136,19 +136,19 @@ class CdxgenScanner {
 
       // const outputFilePath = path.join(os.tmpdir(), `sbom-${Date.now()}.json`);
       // const outputFilePath = path.join(targetDirectory, `sbom-${Date.now()}.json`);
-            const outputFilePath = path.join(targetDirectory, `sbom.json`);
+      const outputFilePath = path.join(targetDirectory, `sbom.json`);
 
       const fullOutputPath = path.resolve(outputFilePath);
       core.info(`🔍 Generating SBOM for: ${targetDirectory}`);
 
       // const args = ['--output', outputFilePath, targetDirectory];
-     const args = [
-    // '--type', 'maven',              // ← FORCE Maven detection
-    '--spec-version', '1.4',
-    '--deep',                       // ← Scan subdirectories
-    '--output', outputFilePath,
-    targetDirectory
-  ];
+      const args = [
+        // '--type', 'maven',              // ← FORCE Maven detection
+        '--spec-version', '1.4',
+        '--deep',                       // ← Scan subdirectories
+        '--output', outputFilePath,
+        targetDirectory
+      ];
       core.info(`📝 Running: ${this.binaryPath} ${args.join(' ')}`);
 
       let stdoutOutput = '';
@@ -189,82 +189,102 @@ class CdxgenScanner {
   /**
    * Required by orchestrator
    */
- async scan(config) {
-  try {
-    const targetDir = config.scanTarget || '.';
-    const sbomPath = await this.generateSBOM(targetDir);
-    
-    core.info(`📦 SBOM generated: ${sbomPath}`);
+  async scan(config) {
+    try {
+      const targetDir = config.scanTarget || '.';
+      const sbomPath = await this.generateSBOM(targetDir);
 
-    this.trivyBinaryPath = await this.installTrivy();
-    
-    let stdoutData = '';
-    
-    // ✅ SILENT MODE: No Trivy logs printed
-    await exec.exec(this.trivyBinaryPath, [
-      'sbom',
-      '--format', 'json',
-      '--quiet',           // Hide all logs
-      sbomPath
-    ], {
-      ignoreReturnCode: true,
-      listeners: {
-        stdout: (data) => {
-          stdoutData += data.toString();
+      core.info(`📦 SBOM generated: ${sbomPath}`);
+
+      this.trivyBinaryPath = await this.installTrivy();
+
+      let stdoutData = '';
+
+      // ✅ SILENT MODE: No Trivy logs printed
+      // await exec.exec(this.trivyBinaryPath, [
+      //   'sbom',
+      //   // '--format', 'json',
+      //   // '--quiet',           // Hide all logs
+      //   sbomPath
+      // ], {
+      //   ignoreReturnCode: true,
+      //   listeners: {
+      //     stdout: (data) => {
+      //       stdoutData += data.toString();
+      //     }
+      //   },
+      //   stderr: 'pipe'       // Don't print stderr
+      // });
+
+      const trivyArgs = [
+        'sbom',
+        // '--format', 'json',
+        // '--quiet',
+        sbomPath
+      ];
+
+      // 🖨️ Print the full command before running it
+      console.log(`Running command for trivy: ${this.trivyBinaryPath} ${trivyArgs.join(' ')}`);
+
+      await exec.exec(this.trivyBinaryPath, trivyArgs, {
+        ignoreReturnCode: true,
+        listeners: {
+          stdout: (data) => {
+            stdoutData += data.toString();
+          }
+        },
+        stderr: 'pipe'
+      });
+
+      if (stdoutData.trim() === '') {
+        core.warning('⚠️  No vulnerabilities found');
+        return {
+          total: 0,
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+          vulnerabilities: [],
+          sbomPath
+        };
+      }
+
+      const data = JSON.parse(stdoutData);
+      const vulns = (data.Results || []).flatMap(r => r.Vulnerabilities || []).filter(v => v);
+
+      const countBySeverity = {
+        CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0
+      };
+
+      vulns.forEach(vuln => {
+        const sev = (vuln.Severity || 'UNKNOWN').toUpperCase();
+        if (countBySeverity[sev] !== undefined) {
+          countBySeverity[sev]++;
         }
-      },
-      stderr: 'pipe'       // Don't print stderr
-    });
+      });
 
-    if (stdoutData.trim() === '') {
-      core.warning('⚠️  No vulnerabilities found');
+      core.info(`📊 Vulnerability Summary:`);
+      core.info(`   CRITICAL: ${countBySeverity.CRITICAL}`);
+      core.info(`   HIGH:     ${countBySeverity.HIGH}`);
+      core.info(`   MEDIUM:   ${countBySeverity.MEDIUM}`);
+      core.info(`   LOW:      ${countBySeverity.LOW}`);
+      core.info(`   TOTAL:    ${vulns.length}`);
+
       return {
-        total: 0,
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0,
-        vulnerabilities: [],
+        total: vulns.length,
+        critical: countBySeverity.CRITICAL,
+        high: countBySeverity.HIGH,
+        medium: countBySeverity.MEDIUM,
+        low: countBySeverity.LOW,
+        vulnerabilities: vulns,
         sbomPath
       };
+
+    } catch (error) {
+      core.error(`❌ Scan failed: ${error.message}`);
+      throw error;
     }
-
-    const data = JSON.parse(stdoutData);
-    const vulns = (data.Results || []).flatMap(r => r.Vulnerabilities || []).filter(v => v);
-    
-    const countBySeverity = {
-      CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0
-    };
-    
-    vulns.forEach(vuln => {
-      const sev = (vuln.Severity || 'UNKNOWN').toUpperCase();
-      if (countBySeverity[sev] !== undefined) {
-        countBySeverity[sev]++;
-      }
-    });
-
-    core.info(`📊 Vulnerability Summary:`);
-    core.info(`   CRITICAL: ${countBySeverity.CRITICAL}`);
-    core.info(`   HIGH:     ${countBySeverity.HIGH}`);
-    core.info(`   MEDIUM:   ${countBySeverity.MEDIUM}`);
-    core.info(`   LOW:      ${countBySeverity.LOW}`);
-    core.info(`   TOTAL:    ${vulns.length}`);
-
-    return {
-      total: vulns.length,
-      critical: countBySeverity.CRITICAL,
-      high: countBySeverity.HIGH,
-      medium: countBySeverity.MEDIUM,
-      low: countBySeverity.LOW,
-      vulnerabilities: vulns,
-      sbomPath
-    };
-    
-  } catch (error) {
-    core.error(`❌ Scan failed: ${error.message}`);
-    throw error;
   }
-}
 
 }
 
