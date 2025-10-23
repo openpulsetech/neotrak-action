@@ -189,186 +189,95 @@ class CdxgenScanner {
   /**
    * Required by orchestrator
    */
-  // async scan(config) {
-  //   try {
-  //     const targetDir = config.scanTarget || '.';
-  //     const sbomPath = await this.generateSBOM(targetDir);
-
-  //     core.info(`📦 SBOM generated: ${sbomPath}`);
-  //     // const sbomContent = fs.readFileSync(sbomPath, 'utf-8');
-  //     // core.info(`📄 SBOM CONTENT for sbom path:\n${sbomContent}`);
-
-  //     this.trivyBinaryPath = await this.installTrivy();
-
-  //     let stdoutData = '';
-
-  //     const trivyArgs = [
-  //       'sbom',
-  //       '--format', 'json',
-  //       '--quiet',
-  //       sbomPath
-  //     ];
-
-  //     console.log(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
-  //     console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
-
-  //     // ✅ Run trivy using full path (PATH not reliable in same process)
-  //     await exec.exec(this.trivyBinaryPath, trivyArgs, {
-  //       ignoreReturnCode: true,
-  //       listeners: {
-  //         stdout: (data) => { stdoutData += data.toString(); }
-  //       },
-  //       stderr: 'pipe'
-  //     });
-
-  //     if (stdoutData.trim() === '') {
-  //       core.warning('⚠️  No vulnerabilities found');
-  //       return {
-  //         total: 0,
-  //         critical: 0,
-  //         high: 0,
-  //         medium: 0,
-  //         low: 0,
-  //         vulnerabilities: [],
-  //         sbomPath
-  //       };
-  //     }
-
-  //     const data = JSON.parse(stdoutData);
-  //     const vulns = (data.Results || []).flatMap(r => r.Vulnerabilities || []).filter(v => v);
-
-  //     const countBySeverity = {
-  //       CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0
-  //     };
-
-  //     vulns.forEach(vuln => {
-  //       const sev = (vuln.Severity || 'UNKNOWN').toUpperCase();
-  //       if (countBySeverity[sev] !== undefined) {
-  //         countBySeverity[sev]++;
-  //       }
-  //     });
-
-  //     core.info(`📊 Vulnerability Summary:`);
-  //     core.info(`   CRITICAL: ${countBySeverity.CRITICAL}`);
-  //     core.info(`   HIGH:     ${countBySeverity.HIGH}`);
-  //     core.info(`   MEDIUM:   ${countBySeverity.MEDIUM}`);
-  //     core.info(`   LOW:      ${countBySeverity.LOW}`);
-  //     core.info(`   TOTAL:    ${vulns.length}`);
-
-  //     return {
-  //       total: vulns.length,
-  //       critical: countBySeverity.CRITICAL,
-  //       high: countBySeverity.HIGH,
-  //       medium: countBySeverity.MEDIUM,
-  //       low: countBySeverity.LOW,
-  //       vulnerabilities: vulns,
-  //       sbomPath
-  //     };
-
-  //   } catch (error) {
-  //     core.error(`❌ Scan failed: ${error.message}`);
-  //     // throw error;
-  //     core.info('➡️ Falling back to Trivy scanner...');
-
-  //     // Fallback: call trivy.js scanner directly
-  //     return await trivyScanner.scan(config);
-  //   }
-  // }
-
   async scan(config) {
-  try {
-    const targetDir = config.scanTarget || '.';
-    const sbomPath = await this.generateSBOM(targetDir);
+    try {
+      const targetDir = config.scanTarget || '.';
+       // ======= Simulate failure here to test fallback =======
+    // Uncomment the next line to force generateSBOM to fail
+      throw new Error('Forced error to test fallback');
+      
+      const sbomPath = await this.generateSBOM(targetDir);
 
-    core.info(`📦 SBOM generated: ${sbomPath}`);
+      core.info(`📦 SBOM generated: ${sbomPath}`);
+      // const sbomContent = fs.readFileSync(sbomPath, 'utf-8');
+      // core.info(`📄 SBOM CONTENT for sbom path:\n${sbomContent}`);
 
-    this.trivyBinaryPath = await this.installTrivy();
+      this.trivyBinaryPath = await this.installTrivy();
 
-    let stdoutData = '';
+      let stdoutData = '';
 
-    const trivyArgs = [
-      'sbom',
-      '--format', 'json',
-      '--quiet',
-      sbomPath
-    ];
+      const trivyArgs = [
+        'sbom',
+        '--format', 'json',
+        '--quiet',
+        sbomPath
+      ];
 
-    console.log(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
-    console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
+      console.log(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
+      console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
 
-    // Save original exec.exec function
-    const originalExec = exec.exec;
+      // ✅ Run trivy using full path (PATH not reliable in same process)
+      await exec.exec(this.trivyBinaryPath, trivyArgs, {
+        ignoreReturnCode: true,
+        listeners: {
+          stdout: (data) => { stdoutData += data.toString(); }
+        },
+        stderr: 'pipe'
+      });
 
-    // Replace exec.exec with a function that throws an error to simulate failure
-    exec.exec = async () => {
-      throw new Error('Forced exec failure for testing catch block');
-    };
+      if (stdoutData.trim() === '') {
+        core.warning('⚠️  No vulnerabilities found');
+        return {
+          total: 0,
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+          vulnerabilities: [],
+          sbomPath
+        };
+      }
 
-    // This call will now throw and jump to catch block
-    await exec.exec(this.trivyBinaryPath, trivyArgs, {
-      ignoreReturnCode: true,
-      listeners: {
-        stdout: (data) => { stdoutData += data.toString(); }
-      },
-      stderr: 'pipe'
-    });
+      const data = JSON.parse(stdoutData);
+      const vulns = (data.Results || []).flatMap(r => r.Vulnerabilities || []).filter(v => v);
 
-    // Restore exec.exec back to original (if execution gets here for some reason)
-    exec.exec = originalExec;
+      const countBySeverity = {
+        CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0
+      };
 
-    if (stdoutData.trim() === '') {
-      core.warning('⚠️  No vulnerabilities found');
+      vulns.forEach(vuln => {
+        const sev = (vuln.Severity || 'UNKNOWN').toUpperCase();
+        if (countBySeverity[sev] !== undefined) {
+          countBySeverity[sev]++;
+        }
+      });
+
+      core.info(`📊 Vulnerability Summary:`);
+      core.info(`   CRITICAL: ${countBySeverity.CRITICAL}`);
+      core.info(`   HIGH:     ${countBySeverity.HIGH}`);
+      core.info(`   MEDIUM:   ${countBySeverity.MEDIUM}`);
+      core.info(`   LOW:      ${countBySeverity.LOW}`);
+      core.info(`   TOTAL:    ${vulns.length}`);
+
       return {
-        total: 0,
-        critical: 0,
-        high: 0,
-        medium: 0,
-        low: 0,
-        vulnerabilities: [],
+        total: vulns.length,
+        critical: countBySeverity.CRITICAL,
+        high: countBySeverity.HIGH,
+        medium: countBySeverity.MEDIUM,
+        low: countBySeverity.LOW,
+        vulnerabilities: vulns,
         sbomPath
       };
+
+    } catch (error) {
+      core.error(`❌ Scan failed: ${error.message}`);
+      // throw error;
+      core.info('➡️ Falling back to Trivy scanner...');
+
+      // Fallback: call trivy.js scanner directly
+      return await trivyScanner.scan(config);
     }
-
-    const data = JSON.parse(stdoutData);
-    const vulns = (data.Results || []).flatMap(r => r.Vulnerabilities || []).filter(v => v);
-
-    const countBySeverity = {
-      CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0
-    };
-
-    vulns.forEach(vuln => {
-      const sev = (vuln.Severity || 'UNKNOWN').toUpperCase();
-      if (countBySeverity[sev] !== undefined) {
-        countBySeverity[sev]++;
-      }
-    });
-
-    core.info(`📊 Vulnerability Summary:`);
-    core.info(`   CRITICAL: ${countBySeverity.CRITICAL}`);
-    core.info(`   HIGH:     ${countBySeverity.HIGH}`);
-    core.info(`   MEDIUM:   ${countBySeverity.MEDIUM}`);
-    core.info(`   LOW:      ${countBySeverity.LOW}`);
-    core.info(`   TOTAL:    ${vulns.length}`);
-
-    return {
-      total: vulns.length,
-      critical: countBySeverity.CRITICAL,
-      high: countBySeverity.HIGH,
-      medium: countBySeverity.MEDIUM,
-      low: countBySeverity.LOW,
-      vulnerabilities: vulns,
-      sbomPath
-    };
-
-  } catch (error) {
-    core.error(`❌ Scan failed: ${error.message}`);
-    core.info('➡️ Falling back to Trivy scanner...');
-
-    // Call fallback scanner on error
-    return await trivyScanner.scan(config);
   }
-}
-
 
 }
 
