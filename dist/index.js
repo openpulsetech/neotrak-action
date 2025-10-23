@@ -16272,20 +16272,17 @@ class CdxgenScanner {
       const sbomPath = await this.generateSBOM(targetDir);
 
       core.info(`📦 SBOM generated: ${sbomPath}`);
+      const sbomContent = fs.readFileSync(sbomPath, 'utf-8');
+      core.info(`📄 SBOM CONTENT for sbom path:\n${sbomContent}`);
 
       this.trivyBinaryPath = await this.installTrivy();
 
       let stdoutData = '';
 
-      //  const trivyArgs = [
-      //   'sbom',
-      //   '--format', 'json',
-      //   '--quiet',
-      //   sbomPath
-      // ];
-
-       const trivyArgs = [
+      const trivyArgs = [
         'sbom',
+        '--format', 'json',
+        '--quiet',
         sbomPath
       ];
 
