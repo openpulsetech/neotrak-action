@@ -224,7 +224,7 @@ class CdxgenScanner {
 
        const trivyArgs = [
         'sbom',
-        // '--format', 'json',
+        '--format', 'json',
         '--quiet',
         sbomPath
       ];
