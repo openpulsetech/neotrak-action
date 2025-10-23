@@ -16081,9 +16081,10 @@ const os = __webpack_require__(857);
 const fs = __webpack_require__(9896);
 const path = __webpack_require__(6928);
 
+const trivyScanner = __webpack_require__(3513);
+
 const CDXGEN_PACKAGE = '@cyclonedx/cdxgen';
 const CDXGEN_VERSION = '11.9.0';
-// const CDXGEN_VERSION = '10.11.0';
 const CDXGEN_BINARY = 'cdxgen';
 
 class CdxgenScanner {
@@ -16276,28 +16277,6 @@ class CdxgenScanner {
 
       let stdoutData = '';
 
-      // const trivyArgs = [
-      //   'sbom',
-      //   '--format', 'json',
-      //   '--quiet',
-      //   sbomPath 
-      // ];
-
-      // // ✅ Ensure trivy is in PATH
-      // core.addPath(path.dirname(this.trivyBinaryPath));
-
-      // console.log(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
-      // console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
-
-      // // ✅ Run “trivy sbom …” as command
-      // await exec.exec('trivy', trivyArgs, {
-      //   ignoreReturnCode: true,
-      //   listeners: {
-      //     stdout: (data) => { stdoutData += data.toString(); }
-      //   },
-      //   stderr: 'pipe'
-      // });
-
        const trivyArgs = [
         'sbom',
         '--format', 'json',
@@ -16363,7 +16342,11 @@ class CdxgenScanner {
 
     } catch (error) {
       core.error(`❌ Scan failed: ${error.message}`);
-      throw error;
+      // throw error;
+      core.info('➡️ Falling back to Trivy scanner...');
+
+      // Fallback: call trivy.js scanner directly
+      return await trivyScanner.scan(config);
     }
   }
 
