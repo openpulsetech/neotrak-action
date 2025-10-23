@@ -218,20 +218,17 @@ class CdxgenScanner {
 
       const trivyArgs = [
         'sbom',
-        // '--format', 'json',
-        // '--quiet',
         sbomPath
       ];
 
-      // 🖨️ Print the full command before running it
-      console.log(`Running command for trivy: ${this.trivyBinaryPath} ${trivyArgs.join(' ')}`);
+      // ✅ Ensure trivy is in PATH
+      core.addPath(path.dirname(this.trivyBinaryPath));
 
-      await exec.exec(this.trivyBinaryPath, trivyArgs, {
+      // ✅ Run “trivy sbom …” as command
+      await exec.exec('trivy', trivyArgs, {
         ignoreReturnCode: true,
         listeners: {
-          stdout: (data) => {
-            stdoutData += data.toString();
-          }
+          stdout: (data) => { stdoutData += data.toString(); }
         },
         stderr: 'pipe'
       });
