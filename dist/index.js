@@ -16280,7 +16280,7 @@ class CdxgenScanner {
       //   'sbom',
       //   '--format', 'json',
       //   '--quiet',
-      //   sbomPath
+      //   sbomPath 
       // ];
 
       // // ✅ Ensure trivy is in PATH
@@ -16300,7 +16300,7 @@ class CdxgenScanner {
 
        const trivyArgs = [
         'sbom',
-        '--format', 'json',
+        // '--format', 'json',
         '--quiet',
         sbomPath
       ];
@@ -35478,9 +35478,12 @@ async function run() {
     await orchestrator.postPRComment();
     
     // Check if should fail
-    // if (orchestrator.shouldFail()) {
-    if (false) // removed by dead control flow
-{} else {
+    if (orchestrator.shouldFail()) {
+      core.setFailed(
+        `NTU Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
+        `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High)`
+      );
+    } else {
       core.info('✅ Security scan completed successfully');
     }
     

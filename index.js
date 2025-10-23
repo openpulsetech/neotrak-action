@@ -266,8 +266,7 @@ async function run() {
     await orchestrator.postPRComment();
     
     // Check if should fail
-    // if (orchestrator.shouldFail()) {
-    if (false) {
+    if (orchestrator.shouldFail()) {
       core.setFailed(
         `NTU Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
         `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High)`
