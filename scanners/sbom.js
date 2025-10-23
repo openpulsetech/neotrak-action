@@ -20,7 +20,7 @@ class CdxgenScanner {
 
   async installTrivy() {
     try {
-      const TRIVY_VERSION = '0.55.0'; // NO leading 'v'
+      const TRIVY_VERSION = '0.66.0'; // NO leading 'v'
       const SCANNER_BINARY = 'ntu-scanner-trivy';
 
       if (!process.env.RUNNER_TEMP) process.env.RUNNER_TEMP = os.tmpdir();
@@ -144,7 +144,6 @@ class CdxgenScanner {
 
       // const args = ['--output', outputFilePath, targetDirectory];
       const args = [
-        // '--type', 'maven',              // ← FORCE Maven detection
         '--spec-version', '1.4',
         '--deep',                       // ← Scan subdirectories
         '--output', outputFilePath,
@@ -196,8 +195,8 @@ class CdxgenScanner {
       const sbomPath = await this.generateSBOM(targetDir);
 
       core.info(`📦 SBOM generated: ${sbomPath}`);
-      const sbomContent = fs.readFileSync(sbomPath, 'utf-8');
-      core.info(`📄 SBOM CONTENT for sbom path:\n${sbomContent}`);
+      // const sbomContent = fs.readFileSync(sbomPath, 'utf-8');
+      // core.info(`📄 SBOM CONTENT for sbom path:\n${sbomContent}`);
 
       this.trivyBinaryPath = await this.installTrivy();
 
