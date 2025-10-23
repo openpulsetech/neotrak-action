@@ -6,8 +6,8 @@ const fs = require('fs');
 const path = require('path');
 
 const CDXGEN_PACKAGE = '@cyclonedx/cdxgen';
-// const CDXGEN_VERSION = '11.9.0';
-const CDXGEN_VERSION = '10.11.0';
+const CDXGEN_VERSION = '11.9.0';
+// const CDXGEN_VERSION = '10.11.0';
 const CDXGEN_BINARY = 'cdxgen';
 
 class CdxgenScanner {
@@ -97,12 +97,12 @@ class CdxgenScanner {
       }
 
       // Install cdxgen locally with specific version
-      // const exitCode = await exec.exec('npm', ['install', `${CDXGEN_PACKAGE}@${CDXGEN_VERSION}`], {
-      //   cwd: installDir
-      // });
-      const exitCode = await exec.exec('npm', ['install', `${CDXGEN_PACKAGE}@10.11.0`], {
+      const exitCode = await exec.exec('npm', ['install', `${CDXGEN_PACKAGE}@${CDXGEN_VERSION}`], {
         cwd: installDir
       });
+      // const exitCode = await exec.exec('npm', ['install', `${CDXGEN_PACKAGE}@10.11.0`], {
+      //   cwd: installDir
+      // });
 
       if (exitCode !== 0) {
         throw new Error(`npm install failed with exit code: ${exitCode}`);
@@ -141,7 +141,7 @@ class CdxgenScanner {
 
       // const args = ['--output', outputFilePath, targetDirectory];
      const args = [
-    '--type', 'maven',              // ← FORCE Maven detection
+    // '--type', 'maven',              // ← FORCE Maven detection
     '--spec-version', '1.4',
     '--deep',                       // ← Scan subdirectories
     '--output', outputFilePath,
