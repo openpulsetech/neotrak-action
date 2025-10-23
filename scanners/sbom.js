@@ -200,37 +200,40 @@ class CdxgenScanner {
 
       let stdoutData = '';
 
-      // ✅ SILENT MODE: No Trivy logs printed
-      // await exec.exec(this.trivyBinaryPath, [
+      // const trivyArgs = [
       //   'sbom',
-      //   // '--format', 'json',
-      //   // '--quiet',           // Hide all logs
+      //   '--format', 'json',
+      //   '--quiet',
       //   sbomPath
-      // ], {
+      // ];
+
+      // // ✅ Ensure trivy is in PATH
+      // core.addPath(path.dirname(this.trivyBinaryPath));
+
+      // console.log(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
+      // console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
+
+      // // ✅ Run “trivy sbom …” as command
+      // await exec.exec('trivy', trivyArgs, {
       //   ignoreReturnCode: true,
       //   listeners: {
-      //     stdout: (data) => {
-      //       stdoutData += data.toString();
-      //     }
+      //     stdout: (data) => { stdoutData += data.toString(); }
       //   },
-      //   stderr: 'pipe'       // Don't print stderr
+      //   stderr: 'pipe'
       // });
 
-      const trivyArgs = [
+       const trivyArgs = [
         'sbom',
         '--format', 'json',
         '--quiet',
         sbomPath
       ];
 
-      // ✅ Ensure trivy is in PATH
-      core.addPath(path.dirname(this.trivyBinaryPath));
-
       console.log(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
       console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
 
-      // ✅ Run “trivy sbom …” as command
-      await exec.exec('trivy', trivyArgs, {
+      // ✅ Run trivy using full path (PATH not reliable in same process)
+      await exec.exec(this.trivyBinaryPath, trivyArgs, {
         ignoreReturnCode: true,
         listeners: {
           stdout: (data) => { stdoutData += data.toString(); }
