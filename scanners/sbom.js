@@ -224,6 +224,9 @@ class CdxgenScanner {
       // ✅ Ensure trivy is in PATH
       core.addPath(path.dirname(this.trivyBinaryPath));
 
+      console.log(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
+      console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
+      
       // ✅ Run “trivy sbom …” as command
       await exec.exec('trivy', trivyArgs, {
         ignoreReturnCode: true,
