@@ -18,73 +18,73 @@ class CdxgenScanner {
     this.trivyBinaryPath = null;
   }
 
-  async installTrivy() {
-    try {
-      const TRIVY_VERSION = '0.66.0'; // NO leading 'v'
-      const SCANNER_BINARY = 'ntu-scanner-trivy';
+  // async installTrivy() {
+  //   try {
+  //     const TRIVY_VERSION = '0.66.0'; // NO leading 'v'
+  //     const SCANNER_BINARY = 'ntu-scanner-trivy';
 
-      if (!process.env.RUNNER_TEMP) process.env.RUNNER_TEMP = os.tmpdir();
-      if (!process.env.RUNNER_TOOL_CACHE) process.env.RUNNER_TOOL_CACHE = path.join(os.homedir(), '.cache', 'actions');
-      if (!process.env.RUNNER_WORKSPACE) process.env.RUNNER_WORKSPACE = process.cwd();
-      if (!process.env.GITHUB_WORKSPACE) process.env.GITHUB_WORKSPACE = process.cwd();
-      if (!fs.existsSync(process.env.RUNNER_TOOL_CACHE)) fs.mkdirSync(process.env.RUNNER_TOOL_CACHE, { recursive: true });
+  //     if (!process.env.RUNNER_TEMP) process.env.RUNNER_TEMP = os.tmpdir();
+  //     if (!process.env.RUNNER_TOOL_CACHE) process.env.RUNNER_TOOL_CACHE = path.join(os.homedir(), '.cache', 'actions');
+  //     if (!process.env.RUNNER_WORKSPACE) process.env.RUNNER_WORKSPACE = process.cwd();
+  //     if (!process.env.GITHUB_WORKSPACE) process.env.GITHUB_WORKSPACE = process.cwd();
+  //     if (!fs.existsSync(process.env.RUNNER_TOOL_CACHE)) fs.mkdirSync(process.env.RUNNER_TOOL_CACHE, { recursive: true });
 
-      const platform = os.platform();
-      const arch = os.arch() === 'x64' ? '64bit' : 'ARM64';
+  //     const platform = os.platform();
+  //     const arch = os.arch() === 'x64' ? '64bit' : 'ARM64';
 
-      let downloadUrl;
+  //     let downloadUrl;
 
-      if (platform === 'linux') {
-        downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${arch}.tar.gz`;
-      } else if (platform === 'darwin') {
-        downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_macOS-${arch}.tar.gz`;
-      } else if (platform === 'win32') {
-        downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_windows-${arch}.zip`;
-      } else {
-        throw new Error(`Unsupported platform: ${platform}`);
-      }
+  //     if (platform === 'linux') {
+  //       downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${arch}.tar.gz`;
+  //     } else if (platform === 'darwin') {
+  //       downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_macOS-${arch}.tar.gz`;
+  //     } else if (platform === 'win32') {
+  //       downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_windows-${arch}.zip`;
+  //     } else {
+  //       throw new Error(`Unsupported platform: ${platform}`);
+  //     }
 
-      core.debug(`Downloading Trivy from: ${downloadUrl}`);
-      const downloadPath = await tc.downloadTool(downloadUrl);
+  //     core.debug(`Downloading Trivy from: ${downloadUrl}`);
+  //     const downloadPath = await tc.downloadTool(downloadUrl);
 
-      let extractedPath;
-      if (platform === 'win32') {
-        extractedPath = await tc.extractZip(downloadPath);
-      } else {
-        extractedPath = await tc.extractTar(downloadPath);
-      }
+  //     let extractedPath;
+  //     if (platform === 'win32') {
+  //       extractedPath = await tc.extractZip(downloadPath);
+  //     } else {
+  //       extractedPath = await tc.extractTar(downloadPath);
+  //     }
 
-      const originalBinary = platform === 'win32' ? 'trivy.exe' : 'trivy';
-      const newBinary = platform === 'win32' ? `${SCANNER_BINARY}.exe` : SCANNER_BINARY;
+  //     const originalBinary = platform === 'win32' ? 'trivy.exe' : 'trivy';
+  //     const newBinary = platform === 'win32' ? `${SCANNER_BINARY}.exe` : SCANNER_BINARY;
 
-      const trivyPath = path.join(extractedPath, originalBinary);
-      const scannerPath = path.join(extractedPath, newBinary);
+  //     const trivyPath = path.join(extractedPath, originalBinary);
+  //     const scannerPath = path.join(extractedPath, newBinary);
 
-      if (fs.existsSync(trivyPath)) {
-        fs.renameSync(trivyPath, scannerPath);
-      }
+  //     if (fs.existsSync(trivyPath)) {
+  //       fs.renameSync(trivyPath, scannerPath);
+  //     }
 
-      if (platform !== 'win32') {
-        fs.chmodSync(scannerPath, '755');
-      }
+  //     if (platform !== 'win32') {
+  //       fs.chmodSync(scannerPath, '755');
+  //     }
 
-      const cachedPath = await tc.cacheDir(
-        path.dirname(scannerPath),
-        'ntu-scanner-trivy',
-        TRIVY_VERSION
-      );
+  //     const cachedPath = await tc.cacheDir(
+  //       path.dirname(scannerPath),
+  //       'ntu-scanner-trivy',
+  //       TRIVY_VERSION
+  //     );
 
-      core.addPath(cachedPath);
+  //     core.addPath(cachedPath);
 
-      this.trivyBinaryPath = path.join(cachedPath, newBinary);
-      core.info(`✅ Trivy installed at: ${this.trivyBinaryPath}`);
+  //     this.trivyBinaryPath = path.join(cachedPath, newBinary);
+  //     core.info(`✅ Trivy installed at: ${this.trivyBinaryPath}`);
 
-      return this.trivyBinaryPath;
+  //     return this.trivyBinaryPath;
 
-    } catch (error) {
-      throw new Error(`Failed to install Trivy: ${error.message}`);
-    }
-  }
+  //   } catch (error) {
+  //     throw new Error(`Failed to install Trivy: ${error.message}`);
+  //   }
+  // }
 
 
   async install() {
@@ -172,12 +172,12 @@ class CdxgenScanner {
         core.error(`Stderr: ${stderrOutput}`);
         throw new Error('CDXgen did not generate SBOM output file');
       }
-      const sbomContent = fs.readFileSync(fullOutputPath, 'utf8');
-      const sbomJson = JSON.parse(sbomContent);
-      const specVersion = sbomJson.specVersion || sbomJson.bomFormat;
-      core.info(`✅ SBOM spec version: ${specVersion}`);
-      core.info(`📦 Components: ${sbomJson.components?.length || 0}`);
-      core.info(`📦 SBOM FILE CONTENT:\n${sbomContent}`);
+      // const sbomContent = fs.readFileSync(fullOutputPath, 'utf8');
+      // const sbomJson = JSON.parse(sbomContent);
+      // const specVersion = sbomJson.specVersion || sbomJson.bomFormat;
+      // core.info(`✅ SBOM spec version: ${specVersion}`);
+      // core.info(`📦 Components: ${sbomJson.components?.length || 0}`);
+      // core.info(`📦 SBOM FILE CONTENT:\n${sbomContent}`);
 
       return fullOutputPath;
     } catch (error) {
@@ -192,17 +192,20 @@ class CdxgenScanner {
   async scan(config) {
     try {
       const targetDir = config.scanTarget || '.';
-       // ======= Simulate failure here to test fallback =======
-    // Uncomment the next line to force generateSBOM to fail
-      throw new Error('Forced error to test fallback');
-      
+
+      // Uncomment the next line to force generateSBOM to fail
+      // throw new Error('Forced error to test fallback');
+
       const sbomPath = await this.generateSBOM(targetDir);
 
       core.info(`📦 SBOM generated: ${sbomPath}`);
-      // const sbomContent = fs.readFileSync(sbomPath, 'utf-8');
-      // core.info(`📄 SBOM CONTENT for sbom path:\n${sbomContent}`);
+    
+      // this.trivyBinaryPath = await this.installTrivy();
 
-      this.trivyBinaryPath = await this.installTrivy();
+      if (!trivyScanner.binaryPath) {
+        await trivyScanner.install();
+      }
+      this.trivyBinaryPath = trivyScanner.binaryPath;
 
       let stdoutData = '';
 
