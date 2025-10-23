@@ -135,7 +135,9 @@ class CdxgenScanner {
       }
 
       // const outputFilePath = path.join(os.tmpdir(), `sbom-${Date.now()}.json`);
-      const outputFilePath = path.join(targetDirectory, `sbom-${Date.now()}.json`);
+      // const outputFilePath = path.join(targetDirectory, `sbom-${Date.now()}.json`);
+            const outputFilePath = path.join(targetDirectory, `sbom.json`);
+
       const fullOutputPath = path.resolve(outputFilePath);
       core.info(`🔍 Generating SBOM for: ${targetDirectory}`);
 
