@@ -35454,12 +35454,8 @@ async function run() {
     
     // Check if should fail
     // if (orchestrator.shouldFail()) {
-    if (false) {
-      core.setFailed(
-        `NTU Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
-        `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High)`
-      );
-    } else {
+    if (false) // removed by dead control flow
+{} else {
       core.info('✅ Security scan completed successfully');
     }
     
