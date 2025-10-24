@@ -101,9 +101,6 @@ class CdxgenScanner {
       const exitCode = await exec.exec('npm', ['install', `${CDXGEN_PACKAGE}@${CDXGEN_VERSION}`], {
         cwd: installDir
       });
-      // const exitCode = await exec.exec('npm', ['install', `${CDXGEN_PACKAGE}@10.11.0`], {
-      //   cwd: installDir
-      // });
 
       if (exitCode !== 0) {
         throw new Error(`npm install failed with exit code: ${exitCode}`);
@@ -156,8 +153,10 @@ class CdxgenScanner {
 
       const options = {
         listeners: {
-          stdout: (data) => { stdoutOutput += data.toString(); },
-          stderr: (data) => { stderrOutput += data.toString(); },
+          // stdout: (data) => { stdoutOutput += data.toString(); },
+          // stderr: (data) => { stderrOutput += data.toString(); },
+          stdout: () => {},  // Suppress stdout
+          stderr: () => {}, 
         },
         ignoreReturnCode: true,
         cwd: targetDirectory,
@@ -172,12 +171,6 @@ class CdxgenScanner {
         core.error(`Stderr: ${stderrOutput}`);
         throw new Error('CDXgen did not generate SBOM output file');
       }
-      // const sbomContent = fs.readFileSync(fullOutputPath, 'utf8');
-      // const sbomJson = JSON.parse(sbomContent);
-      // const specVersion = sbomJson.specVersion || sbomJson.bomFormat;
-      // core.info(`✅ SBOM spec version: ${specVersion}`);
-      // core.info(`📦 Components: ${sbomJson.components?.length || 0}`);
-      // core.info(`📦 SBOM FILE CONTENT:\n${sbomContent}`);
 
       return fullOutputPath;
     } catch (error) {
@@ -203,6 +196,7 @@ class CdxgenScanner {
       // this.trivyBinaryPath = await this.installTrivy();
 
       if (!trivyScanner.binaryPath) {
+        core.info('🔧 Trivy not found, installing Trivy scanner in sbom...');
         await trivyScanner.install();
       }
       this.trivyBinaryPath = trivyScanner.binaryPath;
@@ -217,7 +211,7 @@ class CdxgenScanner {
       ];
 
       console.log(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
-      console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
+      // console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
 
       // ✅ Run trivy using full path (PATH not reliable in same process)
       await exec.exec(this.trivyBinaryPath, trivyArgs, {
