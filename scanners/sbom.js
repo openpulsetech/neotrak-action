@@ -101,9 +101,6 @@ class CdxgenScanner {
       const exitCode = await exec.exec('npm', ['install', `${CDXGEN_PACKAGE}@${CDXGEN_VERSION}`], {
         cwd: installDir
       });
-      // const exitCode = await exec.exec('npm', ['install', `${CDXGEN_PACKAGE}@10.11.0`], {
-      //   cwd: installDir
-      // });
 
       if (exitCode !== 0) {
         throw new Error(`npm install failed with exit code: ${exitCode}`);
@@ -174,12 +171,6 @@ class CdxgenScanner {
         core.error(`Stderr: ${stderrOutput}`);
         throw new Error('CDXgen did not generate SBOM output file');
       }
-      // const sbomContent = fs.readFileSync(fullOutputPath, 'utf8');
-      // const sbomJson = JSON.parse(sbomContent);
-      // const specVersion = sbomJson.specVersion || sbomJson.bomFormat;
-      // core.info(`✅ SBOM spec version: ${specVersion}`);
-      // core.info(`📦 Components: ${sbomJson.components?.length || 0}`);
-      // core.info(`📦 SBOM FILE CONTENT:\n${sbomContent}`);
 
       return fullOutputPath;
     } catch (error) {
