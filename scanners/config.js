@@ -10,6 +10,15 @@ class ConfigScanner {
         this.binaryPath = null; // Assuming Trivy is already installed and path set in config.js
     }
 
+    async install() {
+        const trivyInstaller = require('./trivy');
+        if (trivyInstaller.install) {
+            await trivyInstaller.install();
+        } else {
+            core.info('ℹ️ Trivy already installed, skipping.');
+        }
+    }
+    
     /**
      * Run Trivy scan
      */
