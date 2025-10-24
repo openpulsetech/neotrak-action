@@ -203,9 +203,11 @@ class CdxgenScanner {
       // this.trivyBinaryPath = await this.installTrivy();
 
       if (!trivyScanner.binaryPath) {
+        core.info('🔧 Trivy not found, installing Trivy scanner in sbom...');
         await trivyScanner.install();
       }
       this.trivyBinaryPath = trivyScanner.binaryPath;
+      core.info(`🔧 Using Trivy binary at: ${this.trivyBinaryPath}`);
 
       let stdoutData = '';
 
