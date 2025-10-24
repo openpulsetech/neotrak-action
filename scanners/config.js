@@ -11,14 +11,20 @@ class ConfigScanner {
     }
 
     async install() {
+        const path = require('path');
+        const os = require('os');
         const trivyInstaller = require('./trivy');
-        if (trivyInstaller.install) {
+        if (typeof trivyInstaller.install === 'function') {
+            core.info('📦 Installing Trivy for Config Scanner using Trivy scanner installer...');
             await trivyInstaller.install();
+            // Ensure PATH includes cached binary location
+            process.env.PATH = `${process.env.PATH}:${path.join(os.homedir(), '.cache', 'actions', 'ntu-scanner-trivy', 'v0.48.0')}`;
+            core.info(`🛠️ Updated PATH for Trivy: ${process.env.PATH}`);
         } else {
-            core.info('ℹ️ Trivy already installed, skipping.');
+            core.info('ℹ️ Skipping install — Trivy installer not found, assuming it’s already installed.');
         }
     }
-    
+
     /**
      * Run Trivy scan
      */
@@ -49,6 +55,10 @@ class ConfigScanner {
             // Build command
             const command = `trivy config --format json --output ${reportPath} ${scanTarget}`;
 
+             // 🧭 Debug PATH and check if Trivy is found
+            core.info(`🧭 Current PATH: ${process.env.PATH}`);
+            await exec.exec('which trivy', [], { ignoreReturnCode: true });
+            
             // Execute the command
             core.info(`📝 Running: ${command}`);
 
