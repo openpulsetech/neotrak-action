@@ -156,8 +156,10 @@ class CdxgenScanner {
 
       const options = {
         listeners: {
-          stdout: (data) => { stdoutOutput += data.toString(); },
-          stderr: (data) => { stderrOutput += data.toString(); },
+          // stdout: (data) => { stdoutOutput += data.toString(); },
+          // stderr: (data) => { stderrOutput += data.toString(); },
+          stdout: () => {},  // Suppress stdout
+          stderr: () => {}, 
         },
         ignoreReturnCode: true,
         cwd: targetDirectory,
@@ -207,7 +209,6 @@ class CdxgenScanner {
         await trivyScanner.install();
       }
       this.trivyBinaryPath = trivyScanner.binaryPath;
-      core.info(`🔧 Using Trivy binary at: ${this.trivyBinaryPath}`);
 
       let stdoutData = '';
 
@@ -219,7 +220,7 @@ class CdxgenScanner {
       ];
 
       console.log(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
-      console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
+      // console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
 
       // ✅ Run trivy using full path (PATH not reliable in same process)
       await exec.exec(this.trivyBinaryPath, trivyArgs, {
