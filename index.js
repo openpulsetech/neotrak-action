@@ -128,6 +128,18 @@ class NTUSecurityOrchestrator {
     );
   }
 
+   getConfigResult() {
+    return this.results.scannerResults.find(
+      r => r.scanner && r.scanner.toLowerCase().includes('config')
+    );
+  }
+
+  getSecretResult() {
+    return this.results.scannerResults.find(
+      r => r.scanner && r.scanner.toLowerCase().includes('secret')
+    );
+  }
+
   /**
    * Display consolidated results
    */
@@ -153,20 +165,40 @@ class NTUSecurityOrchestrator {
 
     core.info('='.repeat(50));
 
-    // Display per-scanner breakdown
-    if (this.results.scannerResults.length > 1) {
-      core.info('\n📋 Scanner Breakdown:');
-      this.results.scannerResults.forEach(result => {
-        core.info(`\n   ${result.scanner}:`);
-        // Special handling for Config Scanner - only show total
-        if (result.scanner && result.scanner.toLowerCase().includes('config')) {
-          core.info(`      Total Detected Files: ${result.total || 0}`);
-        } else {
-          core.info(`      Total: ${result.total}`);
-          core.info(`      Critical: ${result.critical}, High: ${result.high}, Medium: ${result.medium}, Low: ${result.low}`);
-        }
-      });
+    // Find Config scanner result
+    const configResult = this.getConfigResult();
+    if (configResult) {
+      core.info(`   Total Detected Config Files: ${configResult.total}`);
+    } else {
+      core.info('   ⚠️ No Config scan results found.');
     }
+
+    core.info('='.repeat(50));
+
+    // Find Secret scanner result
+    const secretResult = this.getSecretResult();
+    if (secretResult) {
+      core.info(`   Total Secrets Detected: ${secretResult.total}`);
+    } else {
+      core.info('   ⚠️ No Secret scan results found.');
+    }
+
+    core.info('='.repeat(50));
+
+    // Display per-scanner breakdown
+    // if (this.results.scannerResults.length > 1) {
+    //   core.info('\n📋 Scanner Breakdown:');
+    //   this.results.scannerResults.forEach(result => {
+    //     core.info(`\n   ${result.scanner}:`);
+    //     // Special handling for Config Scanner - only show total
+    //     if (result.scanner && result.scanner.toLowerCase().includes('config')) {
+    //       core.info(`      Total Detected Files: ${result.total || 0}`);
+    //     } else {
+    //       core.info(`      Total: ${result.total}`);
+    //       core.info(`      Critical: ${result.critical}, High: ${result.high}, Medium: ${result.medium}, Low: ${result.low}`);
+    //     }
+    //   });
+    // }
 
     core.endGroup();
   }
