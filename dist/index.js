@@ -35466,7 +35466,7 @@ class NTUSecurityOrchestrator {
     this.results.low += scanResult.low || 0;
   }
 
-  getTrivyResult() {
+  getTrivySbomResult() {
     return this.results.scannerResults.find(
       r => r.scanner && r.scanner.toLowerCase().includes('sbom') && !r.scanner.toLowerCase().includes('config')
     );
@@ -35495,14 +35495,14 @@ class NTUSecurityOrchestrator {
     core.info('='.repeat(50));
   
     // Find Trivy scanner result
-    const trivyResult = this.getTrivyResult();
+    const trivySbomResult = this.getTrivySbomResult();
 
-    if (trivyResult) {
-      core.info(`   Total Vulnerabilities: ${trivyResult.total}`);
-      core.info(`   🔴 Critical: ${trivyResult.critical}`);
-      core.info(`   🟠 High: ${trivyResult.high}`);
-      core.info(`   🟡 Medium: ${trivyResult.medium}`);
-      core.info(`   🟢 Low: ${trivyResult.low}`);
+    if (trivySbomResult) {
+      core.info(`   Total Vulnerabilities: ${trivySbomResult.total}`);
+      core.info(`   🔴 Critical: ${trivySbomResult.critical}`);
+      core.info(`   🟠 High: ${trivySbomResult.high}`);
+      core.info(`   🟡 Medium: ${trivySbomResult.medium}`);
+      core.info(`   🟢 Low: ${trivySbomResult.low}`);
     } else {
       core.info('   ⚠️ No Trivy results found.');
     }
@@ -35664,11 +35664,11 @@ async function run() {
 
     // Check if should fail
     if (orchestrator.shouldFail()) {
-      const trivyResult = orchestrator.getTrivyResult();
-     if (trivyResult) {
+      const trivySbomResult = orchestrator.getTrivySbomResult();
+     if (trivySbomResult) {
         core.setFailed(
-          `NTU Security Scanner found ${trivyResult.total} vulnerabilities ` +
-          `(${trivyResult.critical} Critical, ${trivyResult.high} High)`
+          `NTU Security Scanner found ${trivySbomResult.total} vulnerabilities ` +
+          `(${trivySbomResult.critical} Critical, ${trivySbomResult.high} High)`
         );
       } else {
         core.setFailed(
