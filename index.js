@@ -122,6 +122,12 @@ class NTUSecurityOrchestrator {
     this.results.low += scanResult.low || 0;
   }
 
+  getTrivyResult() {
+    return this.results.scannerResults.find(
+      r => r.scanner && r.scanner.toLowerCase().includes('sbom') && !r.scanner.toLowerCase().includes('config')
+    );
+  }
+
   /**
    * Display consolidated results
    */
@@ -133,9 +139,7 @@ class NTUSecurityOrchestrator {
     core.info('='.repeat(50));
   
     // Find Trivy scanner result
-    const trivyResult = this.results.scannerResults.find(
-      r => r.scanner && r.scanner.toLowerCase().includes('sbom') && !r.scanner.toLowerCase().includes('config')
-    );
+    const trivyResult = this.getTrivyResult();
 
     if (trivyResult) {
       core.info(`   Total Vulnerabilities: ${trivyResult.total}`);
