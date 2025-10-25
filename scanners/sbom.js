@@ -187,7 +187,7 @@ class CdxgenScanner {
       const targetDir = config.scanTarget || '.';
 
       // Uncomment the next line to force generateSBOM to fail
-      // throw new Error('Forced error to test fallback');
+      throw new Error('Forced error to test fallback');
 
       const sbomPath = await this.generateSBOM(targetDir);
 
