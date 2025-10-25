@@ -12730,6 +12730,7 @@ class ConfigScanner {
         try {
             if (!fs.existsSync(jsonPath)) {
                 return {
+                    total: 0,
                     totalFiles: 0,
                     files: []
                 };
@@ -12746,16 +12747,35 @@ class ConfigScanner {
                 });
             }
 
+            const fileCount = files.length;
+               // Log detected files
+            if (fileCount > 0) {
+                core.info(`📁 Detected config files: ${fileCount}`);
+                files.forEach((file, index) => {
+                    core.info(`   ${index + 1}. ${file}`);
+                });
+            }
+
             return {
-                totalFiles: files.length,
-                files
+                total: fileCount,
+                totalFiles: fileCount,
+                files,
+                critical: 0,
+                high: 0,
+                medium: 0,
+                low: 0
             };
 
         } catch (err) {
             core.error(`❌ Failed to parse Trivy results: ${err.message}`);
             return {
+                total: 0,
                 totalFiles: 0,
-                files: []
+                files: [],
+                critical: 0,
+                high: 0,
+                medium: 0,
+                low: 0
             };
         }
     }
@@ -35456,15 +35476,10 @@ class NTUSecurityOrchestrator {
     core.info('='.repeat(50));
     core.info('CONSOLIDATED VULNERABILITY REPORT');
     core.info('='.repeat(50));
-    // core.info(`   Total Vulnerabilities: ${this.results.total}`);
-    // core.info(`   🔴 Critical: ${this.results.critical}`);
-    // core.info(`   🟠 High: ${this.results.high}`);
-    // core.info(`   🟡 Medium: ${this.results.medium}`);
-    // core.info(`   🟢 Low: ${this.results.low}`);
-    
+  
     // Find Trivy scanner result
     const trivyResult = this.results.scannerResults.find(
-      r => r.scanner && r.scanner.toLowerCase().includes('trivy')
+      r => r.scanner && r.scanner.toLowerCase().includes('trivy') && !r.scanner.toLowerCase().includes('config')
     );
 
     if (trivyResult) {
@@ -35484,8 +35499,13 @@ class NTUSecurityOrchestrator {
       core.info('\n📋 Scanner Breakdown:');
       this.results.scannerResults.forEach(result => {
         core.info(`\n   ${result.scanner}:`);
-        core.info(`      Total: ${result.total}`);
-        core.info(`      Critical: ${result.critical}, High: ${result.high}, Medium: ${result.medium}, Low: ${result.low}`);
+        // Special handling for Config Scanner - only show total
+        if (result.scanner && result.scanner.toLowerCase().includes('config')) {
+          core.info(`      Total Detected Files: ${result.total || 0}`);
+        } else {
+          core.info(`      Total: ${result.total}`);
+          core.info(`      Critical: ${result.critical}, High: ${result.high}, Medium: ${result.medium}, Low: ${result.low}`);
+        }
       });
     }
 

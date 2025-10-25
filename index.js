@@ -131,15 +131,10 @@ class NTUSecurityOrchestrator {
     core.info('='.repeat(50));
     core.info('CONSOLIDATED VULNERABILITY REPORT');
     core.info('='.repeat(50));
-    // core.info(`   Total Vulnerabilities: ${this.results.total}`);
-    // core.info(`   🔴 Critical: ${this.results.critical}`);
-    // core.info(`   🟠 High: ${this.results.high}`);
-    // core.info(`   🟡 Medium: ${this.results.medium}`);
-    // core.info(`   🟢 Low: ${this.results.low}`);
-    
+  
     // Find Trivy scanner result
     const trivyResult = this.results.scannerResults.find(
-      r => r.scanner && r.scanner.toLowerCase().includes('trivy')
+      r => r.scanner && r.scanner.toLowerCase().includes('trivy') && !r.scanner.toLowerCase().includes('config')
     );
 
     if (trivyResult) {
@@ -159,8 +154,13 @@ class NTUSecurityOrchestrator {
       core.info('\n📋 Scanner Breakdown:');
       this.results.scannerResults.forEach(result => {
         core.info(`\n   ${result.scanner}:`);
-        core.info(`      Total: ${result.total}`);
-        core.info(`      Critical: ${result.critical}, High: ${result.high}, Medium: ${result.medium}, Low: ${result.low}`);
+        // Special handling for Config Scanner - only show total
+        if (result.scanner && result.scanner.toLowerCase().includes('config')) {
+          core.info(`      Total Detected Files: ${result.total || 0}`);
+        } else {
+          core.info(`      Total: ${result.total}`);
+          core.info(`      Critical: ${result.critical}, High: ${result.high}, Medium: ${result.medium}, Low: ${result.low}`);
+        }
       });
     }
 
