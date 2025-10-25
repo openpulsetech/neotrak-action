@@ -71,7 +71,7 @@ class ConfigScanner {
 
             const results = this.parseResults(reportPath);
 
-            try { fs.unlinkSync(reportPath); } catch {}
+            try { fs.unlinkSync(reportPath); } catch { }
 
             return results;
 
@@ -85,43 +85,37 @@ class ConfigScanner {
     parseResults(jsonPath) {
         try {
             if (!fs.existsSync(jsonPath)) {
-                return { total: 0, critical: 0, high: 0, medium: 0, low: 0, vulnerabilities: [] };
+                return {
+                    totalFiles: 0,
+                    files: []
+                };
             }
 
             const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-            let critical = 0, high = 0, medium = 0, low = 0;
-            const vulnerabilities = [];
+            const files = [];
 
             if (Array.isArray(data.Results)) {
                 data.Results.forEach(result => {
-                    if (Array.isArray(result.Vulnerabilities)) {
-                        result.Vulnerabilities.forEach(vuln => {
-                            vulnerabilities.push({
-                                id: vuln.VulnerabilityID,
-                                severity: vuln.Severity,
-                                package: vuln.PkgName,
-                                version: vuln.InstalledVersion,
-                                fixedVersion: vuln.FixedVersion,
-                                title: vuln.Title
-                            });
-                            switch (vuln.Severity) {
-                                case 'CRITICAL': critical++; break;
-                                case 'HIGH': high++; break;
-                                case 'MEDIUM': medium++; break;
-                                case 'LOW': low++; break;
-                            }
-                        });
+                    if (result.Target) {
+                        files.push(result.Target);
                     }
                 });
             }
 
-            return { total: critical + high + medium + low, critical, high, medium, low, vulnerabilities };
+            return {
+                totalFiles: files.length,
+                files
+            };
 
         } catch (err) {
             core.error(`❌ Failed to parse Trivy results: ${err.message}`);
-            return { total: 0, critical: 0, high: 0, medium: 0, low: 0, vulnerabilities: [] };
+            return {
+                totalFiles: 0,
+                files: []
+            };
         }
     }
+
 }
 
 module.exports = new ConfigScanner();
