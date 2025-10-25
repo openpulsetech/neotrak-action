@@ -35549,7 +35549,7 @@ class NTUSecurityOrchestrator {
       core.info(`   🟢 Low: ${trivySbomResult.low}`);
 
       // Display vulnerability details in pretty table format
-      if (sbomResult.vulnerabilities && sbomResult.vulnerabilities.length > 0) {
+      if (trivySbomResult.vulnerabilities && trivySbomResult.vulnerabilities.length > 0) {
         core.info('\n📋 Vulnerability Details:\n');
         
         // Column widths
@@ -35595,7 +35595,7 @@ class NTUSecurityOrchestrator {
         };
         
         severities.forEach(severity => {
-          const vulnsOfSeverity = sbomResult.vulnerabilities.filter(
+          const vulnsOfSeverity = trivySbomResult.vulnerabilities.filter(
             v => (v.Severity || '').toUpperCase() === severity
           );
           
