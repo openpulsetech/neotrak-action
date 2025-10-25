@@ -35512,7 +35512,6 @@ class NTUSecurityOrchestrator {
   getTrivySbomResult() {
     return this.results.scannerResults.find(
       r => r.scanner && r.scanner.toLowerCase().includes('sbom') 
-      // || r.scanner.toLowerCase().includes('trivy vulnerability')
       && !r.scanner.toLowerCase().includes('config')
     );
   }
@@ -35557,7 +35556,6 @@ class NTUSecurityOrchestrator {
     // Find Config scanner result
     const configResult = this.getConfigResult();
     if (configResult) {
-      // core.info(`   Total Detected Config Files: ${configResult.total}`);
       core.info('📋 CONFIG SCANNER RESULTS');
       core.info(`   Total Misconfigurations: ${configResult.total}`);
       core.info(`   🔴 Critical: ${configResult.critical}`);
