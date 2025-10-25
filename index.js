@@ -124,7 +124,9 @@ class NTUSecurityOrchestrator {
 
   getTrivySbomResult() {
     return this.results.scannerResults.find(
-      r => r.scanner && r.scanner.toLowerCase().includes('sbom') && !r.scanner.toLowerCase().includes('config')
+      r => r.scanner && r.scanner.toLowerCase().includes('sbom') 
+      || r.scanner.toLowerCase().includes('trivy vulnerability')
+      && !r.scanner.toLowerCase().includes('config')
     );
   }
 
@@ -168,7 +170,14 @@ class NTUSecurityOrchestrator {
     // Find Config scanner result
     const configResult = this.getConfigResult();
     if (configResult) {
-      core.info(`   Total Detected Config Files: ${configResult.total}`);
+      // core.info(`   Total Detected Config Files: ${configResult.total}`);
+      core.info('📋 CONFIG SCANNER RESULTS');
+      core.info(`   Total Misconfigurations: ${configResult.total}`);
+      core.info(`   🔴 Critical: ${configResult.critical}`);
+      core.info(`   🟠 High: ${configResult.high}`);
+      core.info(`   🟡 Medium: ${configResult.medium}`);
+      core.info(`   🟢 Low: ${configResult.low}`);
+      core.info(`   Total Config Files Scanned: ${configResult.totalFiles}`);
     } else {
       core.info('   ⚠️ No Config scan results found.');
     }
@@ -178,6 +187,7 @@ class NTUSecurityOrchestrator {
     // Find Secret scanner result
     const secretResult = this.getSecretResult();
     if (secretResult) {
+      core.info('🔐 SECRET SCANNER RESULTS');
       core.info(`   Total Secrets Detected: ${secretResult.total}`);
     } else {
       core.info('   ⚠️ No Secret scan results found.');

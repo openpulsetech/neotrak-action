@@ -12668,7 +12668,7 @@ class ConfigScanner {
 
     async scan(config) {
         try {
-            const { scanTarget, severity, ignoreUnfixed } = config;
+            const { scanTarget, severity } = config;
 
             if (!fs.existsSync(scanTarget)) {
                 throw new Error(`Scan target does not exist: ${scanTarget}`);
@@ -12682,7 +12682,11 @@ class ConfigScanner {
 
             // Build args array
             const args = ['config', '--format', 'json', '--output', reportPath];
-            if (ignoreUnfixed) args.push('--ignore-unfixed');
+            // if (ignoreUnfixed) args.push('--ignore-unfixed');
+             // Add severity filter if specified
+            if (severityUpper && severityUpper !== 'ALL') {
+                args.push('--severity', severityUpper);
+            }
             args.push(scanTarget);
 
             core.info(`📝 Running: ${this.binaryPath} ${args.join(' ')}`);
@@ -12732,17 +12736,49 @@ class ConfigScanner {
                 return {
                     total: 0,
                     totalFiles: 0,
-                    files: []
+                    files: [],
+                    critical: 0,
+                    high: 0,
+                    medium: 0,
+                    low: 0
                 };
             }
 
             const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
             const files = [];
+            let critical = 0;
+            let high = 0;
+            let medium = 0;
+            let low = 0;
+            let total = 0;
 
             if (Array.isArray(data.Results)) {
                 data.Results.forEach(result => {
                     if (result.Target) {
                         files.push(result.Target);
+                    }
+
+             // Count misconfigurations by severity
+                    if (Array.isArray(result.Misconfigurations)) {
+                        result.Misconfigurations.forEach(misconfiguration => {
+                            const severity = misconfiguration.Severity?.toUpperCase();
+                            
+                            switch(severity) {
+                                case 'CRITICAL':
+                                    critical++;
+                                    break;
+                                case 'HIGH':
+                                    high++;
+                                    break;
+                                case 'MEDIUM':
+                                    medium++;
+                                    break;
+                                case 'LOW':
+                                    low++;
+                                    break;
+                            }
+                            total++;
+                        });
                     }
                 });
             }
@@ -12755,6 +12791,13 @@ class ConfigScanner {
                     core.info(`   ${index + 1}. ${file}`);
                 });
             }
+
+            core.info(`\n📊 Vulnerability Summary:`);
+            core.info(`   🔴 Critical: ${critical}`);
+            core.info(`   🟠 High: ${high}`);
+            core.info(`   🟡 Medium: ${medium}`);
+            core.info(`   🟢 Low: ${low}`);
+            core.info(`   📝 Total: ${total}`);
 
             return {
                 total: fileCount,
@@ -35468,7 +35511,9 @@ class NTUSecurityOrchestrator {
 
   getTrivySbomResult() {
     return this.results.scannerResults.find(
-      r => r.scanner && r.scanner.toLowerCase().includes('sbom') && !r.scanner.toLowerCase().includes('config')
+      r => r.scanner && r.scanner.toLowerCase().includes('sbom') 
+      || r.scanner.toLowerCase().includes('trivy vulnerability')
+      && !r.scanner.toLowerCase().includes('config')
     );
   }
 
@@ -35512,7 +35557,14 @@ class NTUSecurityOrchestrator {
     // Find Config scanner result
     const configResult = this.getConfigResult();
     if (configResult) {
-      core.info(`   Total Detected Config Files: ${configResult.total}`);
+      // core.info(`   Total Detected Config Files: ${configResult.total}`);
+      core.info('📋 CONFIG SCANNER RESULTS');
+      core.info(`   Total Misconfigurations: ${configResult.total}`);
+      core.info(`   🔴 Critical: ${configResult.critical}`);
+      core.info(`   🟠 High: ${configResult.high}`);
+      core.info(`   🟡 Medium: ${configResult.medium}`);
+      core.info(`   🟢 Low: ${configResult.low}`);
+      core.info(`   Total Config Files Scanned: ${configResult.totalFiles}`);
     } else {
       core.info('   ⚠️ No Config scan results found.');
     }
@@ -35522,6 +35574,7 @@ class NTUSecurityOrchestrator {
     // Find Secret scanner result
     const secretResult = this.getSecretResult();
     if (secretResult) {
+      core.info('🔐 SECRET SCANNER RESULTS');
       core.info(`   Total Secrets Detected: ${secretResult.total}`);
     } else {
       core.info('   ⚠️ No Secret scan results found.');
