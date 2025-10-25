@@ -12792,7 +12792,7 @@ class ConfigScanner {
                 });
             }
 
-            core.info(`\n📊 Vulnerability Summary:`);
+            core.info(`\n📊 Trivy Config Vulnerability Summary:`);
             core.info(`   🔴 Critical: ${critical}`);
             core.info(`   🟠 High: ${high}`);
             core.info(`   🟡 Medium: ${medium}`);
@@ -16453,64 +16453,84 @@ class CdxgenScanner {
       const targetDir = config.scanTarget || '.';
 
       // Uncomment the next line to force generateSBOM to fail
-      throw new Error('Forced error to test fallback');
+      // throw new Error('Forced error to test fallback');
 
-      // removed by dead control flow
+      const sbomPath = await this.generateSBOM(targetDir);
 
-
-      // removed by dead control flow
-
+      core.info(`📦 SBOM generated: ${sbomPath}`);
     
       // this.trivyBinaryPath = await this.installTrivy();
 
-      // removed by dead control flow
+      if (!trivyScanner.binaryPath) {
+        core.info('🔧 Trivy not found, installing Trivy scanner in sbom...');
+        await trivyScanner.install();
+      }
+      this.trivyBinaryPath = trivyScanner.binaryPath;
 
-      // removed by dead control flow
+      let stdoutData = '';
 
+      const trivyArgs = [
+        'sbom',
+        '--format', 'json',
+        '--quiet',
+        sbomPath
+      ];
 
-      // removed by dead control flow
-
-
-      // removed by dead control flow
-
-
-      // removed by dead control flow
-
+      console.log(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
       // console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
 
       // ✅ Run trivy using full path (PATH not reliable in same process)
-      // removed by dead control flow
+      await exec.exec(this.trivyBinaryPath, trivyArgs, {
+        ignoreReturnCode: true,
+        listeners: {
+          stdout: (data) => { stdoutData += data.toString(); }
+        },
+        stderr: 'pipe'
+      });
 
+      if (stdoutData.trim() === '') {
+        core.warning('⚠️  No vulnerabilities found');
+        return {
+          total: 0,
+          critical: 0,
+          high: 0,
+          medium: 0,
+          low: 0,
+          vulnerabilities: [],
+          sbomPath
+        };
+      }
 
-      // removed by dead control flow
+      const data = JSON.parse(stdoutData);
+      const vulns = (data.Results || []).flatMap(r => r.Vulnerabilities || []).filter(v => v);
 
+      const countBySeverity = {
+        CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, UNKNOWN: 0
+      };
 
-      // removed by dead control flow
+      vulns.forEach(vuln => {
+        const sev = (vuln.Severity || 'UNKNOWN').toUpperCase();
+        if (countBySeverity[sev] !== undefined) {
+          countBySeverity[sev]++;
+        }
+      });
 
-      // removed by dead control flow
+      core.info(`📊 Vulnerability Summary:`);
+      core.info(`   CRITICAL: ${countBySeverity.CRITICAL}`);
+      core.info(`   HIGH:     ${countBySeverity.HIGH}`);
+      core.info(`   MEDIUM:   ${countBySeverity.MEDIUM}`);
+      core.info(`   LOW:      ${countBySeverity.LOW}`);
+      core.info(`   TOTAL:    ${vulns.length}`);
 
-
-      // removed by dead control flow
-
-
-      // removed by dead control flow
-
-
-      // removed by dead control flow
-
-      // removed by dead control flow
-
-      // removed by dead control flow
-
-      // removed by dead control flow
-
-      // removed by dead control flow
-
-      // removed by dead control flow
-
-
-      // removed by dead control flow
-
+      return {
+        total: vulns.length,
+        critical: countBySeverity.CRITICAL,
+        high: countBySeverity.HIGH,
+        medium: countBySeverity.MEDIUM,
+        low: countBySeverity.LOW,
+        vulnerabilities: vulns,
+        sbomPath
+      };
 
     } catch (error) {
       core.error(`❌ Scan failed: ${error.message}`);

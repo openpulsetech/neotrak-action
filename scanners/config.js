@@ -148,7 +148,7 @@ class ConfigScanner {
                 });
             }
 
-            core.info(`\n📊 Vulnerability Summary:`);
+            core.info(`\n📊 Trivy Config Vulnerability Summary:`);
             core.info(`   🔴 Critical: ${critical}`);
             core.info(`   🟠 High: ${high}`);
             core.info(`   🟡 Medium: ${medium}`);
