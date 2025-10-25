@@ -159,10 +159,10 @@ class ConfigScanner {
                 total: fileCount,
                 totalFiles: fileCount,
                 files,
-                critical: 0,
-                high: 0,
-                medium: 0,
-                low: 0
+                critical,
+                high,
+                medium,
+                low
             };
 
         } catch (err) {

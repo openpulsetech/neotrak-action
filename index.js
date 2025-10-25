@@ -125,7 +125,7 @@ class NTUSecurityOrchestrator {
   getTrivySbomResult() {
     return this.results.scannerResults.find(
       r => r.scanner && r.scanner.toLowerCase().includes('sbom') 
-      || r.scanner.toLowerCase().includes('trivy vulnerability')
+      // || r.scanner.toLowerCase().includes('trivy vulnerability')
       && !r.scanner.toLowerCase().includes('config')
     );
   }
