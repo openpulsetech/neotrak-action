@@ -12779,7 +12779,6 @@ class ConfigScanner {
             };
         }
     }
-
 }
 
 module.exports = new ConfigScanner();
