@@ -285,10 +285,18 @@ async function run() {
 
     // Check if should fail
     if (orchestrator.shouldFail()) {
-      core.setFailed(
-        `NTU Security Scanner found ${orchestrator.trivyResult.total} vulnerabilities ` +
-        `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High)`
-      );
+      const trivyResult = orchestrator.getTrivyResult();
+     if (trivyResult) {
+        core.setFailed(
+          `NTU Security Scanner found ${trivyResult.total} vulnerabilities ` +
+          `(${trivyResult.critical} Critical, ${trivyResult.high} High)`
+        );
+      } else {
+        core.setFailed(
+          `NTU Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
+          `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High)`
+        );
+      }
     } else {
       core.info('✅ Security scan completed successfully');
     }
