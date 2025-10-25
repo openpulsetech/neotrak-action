@@ -134,7 +134,7 @@ class NTUSecurityOrchestrator {
   
     // Find Trivy scanner result
     const trivyResult = this.results.scannerResults.find(
-      r => r.scanner && r.scanner.toLowerCase().includes('trivy') && !r.scanner.toLowerCase().includes('config')
+      r => r.scanner && r.scanner.toLowerCase().includes('sbom') && !r.scanner.toLowerCase().includes('config')
     );
 
     if (trivyResult) {
