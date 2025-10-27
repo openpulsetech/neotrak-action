@@ -12780,12 +12780,12 @@ class ConfigScanner {
                                     break;
                             }
                             total++;
-                            
+
                             misconfigurations.push({
                             File: result.Target || 'Unknown',
-                            Issue: mis.Title || mis.ID || 'N/A',
+                            Issue: misconfiguration.Title || misconfiguration.ID || 'N/A',
                             Severity: severity || 'UNKNOWN',
-                            Line: mis.CauseMetadata?.StartLine || 'N/A'
+                            Line: misconfiguration.CauseMetadata?.StartLine || 'N/A'
                         });
                         });
                     }
