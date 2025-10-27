@@ -35623,7 +35623,6 @@ class NTUSecurityOrchestrator {
       'MEDIUM': '🟡',
       'LOW': '🟢'
     };
-    
     severities.forEach(severity => {
       const configsOfSeverity = configResult.misconfigurations.filter(
         c => (c.Severity || '').toUpperCase() === severity
