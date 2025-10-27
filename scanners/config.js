@@ -96,12 +96,14 @@ class ConfigScanner {
                     critical: 0,
                     high: 0,
                     medium: 0,
-                    low: 0
+                    low: 0,
+                    misconfigurations: []
                 };
             }
 
             const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
             const files = [];
+            const misconfigurations = [];
             let critical = 0;
             let high = 0;
             let medium = 0;
@@ -134,6 +136,13 @@ class ConfigScanner {
                                     break;
                             }
                             total++;
+                            
+                            misconfigurations.push({
+                            File: result.Target || 'Unknown',
+                            Issue: mis.Title || mis.ID || 'N/A',
+                            Severity: severity || 'UNKNOWN',
+                            Line: mis.CauseMetadata?.StartLine || 'N/A'
+                        });
                         });
                     }
                 });
@@ -148,13 +157,6 @@ class ConfigScanner {
                 });
             }
 
-            // core.info(`\n📊 Trivy Config Vulnerability Summary:`);
-            // core.info(`   🔴 Critical: ${critical}`);
-            // core.info(`   🟠 High: ${high}`);
-            // core.info(`   🟡 Medium: ${medium}`);
-            // core.info(`   🟢 Low: ${low}`);
-            // core.info(`   📝 Total: ${total}`);
-
             return {
                 total: fileCount,
                 totalFiles: fileCount,
@@ -162,7 +164,8 @@ class ConfigScanner {
                 critical,
                 high,
                 medium,
-                low
+                low,
+                misconfigurations
             };
 
         } catch (err) {
@@ -174,7 +177,8 @@ class ConfigScanner {
                 critical: 0,
                 high: 0,
                 medium: 0,
-                low: 0
+                low: 0,
+                misconfigurations: []
             };
         }
     }
