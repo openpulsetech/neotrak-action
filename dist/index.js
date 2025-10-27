@@ -35792,6 +35792,8 @@ class NTUSecurityOrchestrator {
       core.info(`   🟡 Medium: ${configResult.medium}`);
       core.info(`   🟢 Low: ${configResult.low}`);
       core.info(`   Total Config Files Scanned: ${configResult.totalFiles}`);
+      core.info('🧩 DEBUG: Full Config Result JSON:');
+      core.info(JSON.stringify(configResult, null, 2));
       this.displayConfigTable(configResult);
     } else {
       core.info('   ⚠️ No Config scan results found.');
