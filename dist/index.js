@@ -12639,6 +12639,196 @@ module.exports = connect
 
 /***/ }),
 
+/***/ 3439:
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+const core = __webpack_require__(6977);
+const exec = __webpack_require__(6665);
+const fs = __webpack_require__(9896);
+const os = __webpack_require__(857);
+const path = __webpack_require__(6928);
+
+class ConfigScanner {
+    constructor() {
+        this.name = 'Trivy config Scanner';
+        this.binaryPath = null; // Path to Trivy binary
+    }
+
+    async install() {
+        const trivyInstaller = __webpack_require__(3513);
+        if (typeof trivyInstaller.install === 'function') {
+            core.info('📦 Installing Trivy for Config Scanner using Trivy scanner installer...');
+            this.binaryPath = await trivyInstaller.install(); // Should return full binary path
+            core.info(`🛠️ Trivy binary path: ${this.binaryPath}`);
+        } else {
+            core.info('ℹ️ Skipping install — assuming Trivy is already installed.');
+            this.binaryPath = 'trivy'; // fallback
+        }
+    }
+
+    async scan(config) {
+        try {
+            const { scanTarget, severity } = config;
+
+            if (!fs.existsSync(scanTarget)) {
+                throw new Error(`Scan target does not exist: ${scanTarget}`);
+            }
+
+            const severityUpper = severity.toUpperCase();
+            core.info(`🔍 Scanning: ${scanTarget}`);
+            core.info(`⚠️  Severity: ${severityUpper}`);
+
+            const reportPath = path.join(os.tmpdir(), `trivy-config-scan-${Date.now()}.json`);
+
+            // Build args array
+            const args = ['config', '--format', 'json', '--output', reportPath];
+            // if (ignoreUnfixed) args.push('--ignore-unfixed');
+             // Add severity filter if specified
+            if (severityUpper && severityUpper !== 'ALL') {
+                args.push('--severity', severityUpper);
+            }
+            args.push(scanTarget);
+
+            core.info(`📝 Running: ${this.binaryPath} ${args.join(' ')}`);
+
+            let stdoutOutput = '';
+            let stderrOutput = '';
+
+            const options = {
+                listeners: {
+                    stdout: (data) => { stdoutOutput += data.toString(); },
+                    stderr: (data) => { stderrOutput += data.toString(); },
+                },
+                ignoreReturnCode: true,
+                cwd: path.dirname(scanTarget),
+            };
+
+            const exitCode = await exec.exec(this.binaryPath, args, options);
+
+            core.info(`✅ Scan completed with exit code: ${exitCode}`);
+            if (stderrOutput && exitCode !== 0) {
+                core.warning(`Stderr output: ${stderrOutput}`);
+            }
+
+            if (!fs.existsSync(reportPath)) {
+                core.error(`❌ Output file was not created: ${reportPath}`);
+                core.error(`Stdout: ${stdoutOutput}`);
+                core.error(`Stderr: ${stderrOutput}`);
+                throw new Error('Trivy did not produce output file');
+            }
+
+            const results = this.parseResults(reportPath);
+
+            try { fs.unlinkSync(reportPath); } catch { }
+
+            return results;
+
+        } catch (error) {
+            core.error(`❌ Trivy config scan failed: ${error.message}`);
+            core.debug(error.stack);
+            throw error;
+        }
+    }
+
+    parseResults(jsonPath) {
+        try {
+            if (!fs.existsSync(jsonPath)) {
+                return {
+                    total: 0,
+                    totalFiles: 0,
+                    files: [],
+                    critical: 0,
+                    high: 0,
+                    medium: 0,
+                    low: 0
+                };
+            }
+
+            const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+            const files = [];
+            let critical = 0;
+            let high = 0;
+            let medium = 0;
+            let low = 0;
+            let total = 0;
+
+            if (Array.isArray(data.Results)) {
+                data.Results.forEach(result => {
+                    if (result.Target) {
+                        files.push(result.Target);
+                    }
+
+             // Count misconfigurations by severity
+                    if (Array.isArray(result.Misconfigurations)) {
+                        result.Misconfigurations.forEach(misconfiguration => {
+                            const severity = misconfiguration.Severity?.toUpperCase();
+                            
+                            switch(severity) {
+                                case 'CRITICAL':
+                                    critical++;
+                                    break;
+                                case 'HIGH':
+                                    high++;
+                                    break;
+                                case 'MEDIUM':
+                                    medium++;
+                                    break;
+                                case 'LOW':
+                                    low++;
+                                    break;
+                            }
+                            total++;
+                        });
+                    }
+                });
+            }
+
+            const fileCount = files.length;
+               // Log detected files
+            if (fileCount > 0) {
+                core.info(`📁 Detected config files: ${fileCount}`);
+                files.forEach((file, index) => {
+                    core.info(`   ${index + 1}. ${file}`);
+                });
+            }
+
+            // core.info(`\n📊 Trivy Config Vulnerability Summary:`);
+            // core.info(`   🔴 Critical: ${critical}`);
+            // core.info(`   🟠 High: ${high}`);
+            // core.info(`   🟡 Medium: ${medium}`);
+            // core.info(`   🟢 Low: ${low}`);
+            // core.info(`   📝 Total: ${total}`);
+
+            return {
+                total: fileCount,
+                totalFiles: fileCount,
+                files,
+                critical,
+                high,
+                medium,
+                low
+            };
+
+        } catch (err) {
+            core.error(`❌ Failed to parse Trivy results: ${err.message}`);
+            return {
+                total: 0,
+                totalFiles: 0,
+                files: [],
+                critical: 0,
+                high: 0,
+                medium: 0,
+                low: 0
+            };
+        }
+    }
+}
+
+module.exports = new ConfigScanner();
+
+
+/***/ }),
+
 /***/ 3477:
 /***/ ((module, __unused_webpack_exports, __webpack_require__) => {
 
@@ -35200,6 +35390,7 @@ const github = __webpack_require__(2453);
 const trivyScanner = __webpack_require__(3513);
 const cdxgenScanner = __webpack_require__(5148);
 const secretDetectorScanner = __webpack_require__(8432);
+const configScanner = __webpack_require__(3439);
 const path = __webpack_require__(6928);
 // Future scanners can be imported here
 // const grypeScanner = require('./scanners/grype');
@@ -35218,9 +35409,9 @@ class NTUSecurityOrchestrator {
     };
   }
 
-   /**
-   * Get the workspace directory (the calling project's directory)
-   */
+  /**
+  * Get the workspace directory (the calling project's directory)
+  */
   getWorkspaceDirectory() {
     // GitHub Actions sets GITHUB_WORKSPACE to the repository directory
     const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
@@ -35241,7 +35432,7 @@ class NTUSecurityOrchestrator {
    */
   async initializeScanners() {
     core.startGroup('🔧 NTU Security Scanner Setup');
-    
+
     for (const scanner of this.scanners) {
       try {
         core.info(`Installing ${scanner.name}...`);
@@ -35251,7 +35442,7 @@ class NTUSecurityOrchestrator {
         core.warning(`Failed to install ${scanner.name}: ${error.message}`);
       }
     }
-    
+
     core.endGroup();
   }
 
@@ -35260,23 +35451,23 @@ class NTUSecurityOrchestrator {
    */
   async runScans() {
     core.startGroup('🔍 NTU Security Scan');
-    
+
     const scanType = core.getInput('scan-type') || 'fs';
     const scanTarget = core.getInput('scan-target') || '.';
     const severity = core.getInput('severity') || 'HIGH,CRITICAL';
     const ignoreUnfixed = core.getInput('ignore-unfixed') === 'true';
-    
-    
+
+
     // Get the workspace directory and resolve the scan target relative to it
     const workspaceDir = this.getWorkspaceDirectory();
-    const resolvedTarget = path.isAbsolute(scanTarget) 
-      ? scanTarget 
+    const resolvedTarget = path.isAbsolute(scanTarget)
+      ? scanTarget
       : path.resolve(workspaceDir, scanTarget);
 
     core.info(`📍 Target: ${scanTarget}`);
     core.info(`🎯 Scan Type: ${scanType}`);
     core.info(`⚠️  Severity Filter: ${severity}`);
-    
+
     const scanConfig = {
       scanType,
       scanTarget,
@@ -35291,7 +35482,7 @@ class NTUSecurityOrchestrator {
       try {
         core.info(`\n▶️  Running ${scanner.name}...`);
         const result = await scanner.scan(scanConfig);
-        
+
         if (result) {
           this.aggregateResults(result);
           this.results.scannerResults.push({
@@ -35303,7 +35494,7 @@ class NTUSecurityOrchestrator {
         core.warning(`${scanner.name} scan failed: ${error.message}`);
       }
     }
-    
+
     core.endGroup();
   }
 
@@ -35318,32 +35509,309 @@ class NTUSecurityOrchestrator {
     this.results.low += scanResult.low || 0;
   }
 
+  getTrivySbomResult() {
+    return this.results.scannerResults.find(
+      r => r.scanner && r.scanner.toLowerCase().includes('sbom') 
+      && !r.scanner.toLowerCase().includes('config')
+    );
+  }
+
+   getConfigResult() {
+    return this.results.scannerResults.find(
+      r => r.scanner && r.scanner.toLowerCase().includes('config')
+    );
+  }
+
+  getSecretResult() {
+    return this.results.scannerResults.find(
+      r => r.scanner && r.scanner.toLowerCase().includes('secret')
+    );
+  }
+
+   createTableBorder(colWidths) {
+    const top = '┌' + Object.values(colWidths).map(w => '─'.repeat(w)).join('┬') + '┐';
+    const middle = '├' + Object.values(colWidths).map(w => '─'.repeat(w)).join('┼') + '┤';
+    const bottom = '└' + Object.values(colWidths).map(w => '─'.repeat(w)).join('┴') + '┘';
+    return { top, middle, bottom };
+  }
+
+  displayVulnerabilityTable(trivySbomResult) {
+    if (!trivySbomResult || !trivySbomResult.vulnerabilities || trivySbomResult.vulnerabilities.length === 0) {
+      return;
+    }
+
+    core.info('\n📋 Vulnerability Details:\n');
+    
+    const colWidths = {
+      package: 35,
+      vuln: 22,
+      severity: 12,
+      fixed: 18
+    };
+    
+    const borders = this.createTableBorder(colWidths);
+    
+    // Table header
+    core.info(borders.top);
+    const header = '│ ' + 'Package'.padEnd(colWidths.package - 2) + ' │ ' +
+                  'Vulnerability'.padEnd(colWidths.vuln - 2) + ' │ ' +
+                  'Severity'.padEnd(colWidths.severity - 2) + ' │ ' +
+                  'Fixed Version'.padEnd(colWidths.fixed - 2) + ' │';
+    core.info(header);
+    core.info(borders.middle);
+
+    const severities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+    const severityEmojis = {
+      'CRITICAL': '🔴',
+      'HIGH': '🟠',
+      'MEDIUM': '🟡',
+      'LOW': '🟢'
+    };
+    
+    severities.forEach(severity => {
+      const vulnsOfSeverity = trivySbomResult.vulnerabilities.filter(
+        v => (v.Severity || '').toUpperCase() === severity
+      );
+      
+      vulnsOfSeverity.forEach(vuln => {
+        const pkg = (vuln.PkgName || 'Unknown').substring(0, colWidths.package - 3);
+        const vulnId = (vuln.VulnerabilityID || 'N/A').substring(0, colWidths.vuln - 3);
+        const emoji = severityEmojis[severity] || '';
+        const sev = (emoji + ' ' + severity).substring(0, colWidths.severity - 3);
+        const fixed = (vuln.FixedVersion || 'N/A').substring(0, colWidths.fixed - 3);
+        
+        const row = '│ ' + pkg.padEnd(colWidths.package - 2) + ' │ ' +
+                   vulnId.padEnd(colWidths.vuln - 2) + ' │ ' +
+                   sev.padEnd(colWidths.severity - 2) + ' │ ' +
+                   fixed.padEnd(colWidths.fixed - 2) + ' │';
+        core.info(row);
+      });
+    });
+    
+    core.info(borders.bottom);
+  }
+
+  displayConfigTable(configResult) {
+    if (!configResult || !configResult.misconfigurations || configResult.misconfigurations.length === 0) {
+      return;
+    }
+
+    core.info('\n📋 Misconfiguration Details:\n');
+    
+    const colWidths = {
+      file: 30,
+      issue: 35,
+      severity: 12,
+      line: 10
+    };
+    
+    const borders = this.createTableBorder(colWidths);
+    
+    // Table header
+    core.info(borders.top);
+    const header = '│ ' + 'File'.padEnd(colWidths.file - 2) + ' │ ' +
+                  'Issue'.padEnd(colWidths.issue - 2) + ' │ ' +
+                  'Severity'.padEnd(colWidths.severity - 2) + ' │ ' +
+                  'Line'.padEnd(colWidths.line - 2) + ' │';
+    core.info(header);
+    core.info(borders.middle);
+
+    const severities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+    const severityEmojis = {
+      'CRITICAL': '🔴',
+      'HIGH': '🟠',
+      'MEDIUM': '🟡',
+      'LOW': '🟢'
+    };
+    
+    severities.forEach(severity => {
+      const configsOfSeverity = configResult.misconfigurations.filter(
+        c => (c.Severity || '').toUpperCase() === severity
+      );
+      
+      configsOfSeverity.forEach(config => {
+        const file = (config.File || 'Unknown').substring(0, colWidths.file - 3);
+        const issue = (config.Issue || config.Title || 'N/A').substring(0, colWidths.issue - 3);
+        const emoji = severityEmojis[severity] || '';
+        const sev = (emoji + ' ' + severity).substring(0, colWidths.severity - 3);
+        const line = (config.Line || 'N/A').toString().substring(0, colWidths.line - 3);
+        
+        const row = '│ ' + file.padEnd(colWidths.file - 2) + ' │ ' +
+                   issue.padEnd(colWidths.issue - 2) + ' │ ' +
+                   sev.padEnd(colWidths.severity - 2) + ' │ ' +
+                   line.padEnd(colWidths.line - 2) + ' │';
+        core.info(row);
+      });
+    });
+    
+    core.info(borders.bottom);
+  }
+
+  displaySecretTable(secretResult) {
+    if (!secretResult || !secretResult.secrets || secretResult.secrets.length === 0) {
+      return;
+    }
+
+    core.info('\n📋 Secret Details:\n');
+    
+    const colWidths = {
+      file: 35,
+      type: 25,
+      line: 10,
+      matched: 25
+    };
+    
+    const borders = this.createTableBorder(colWidths);
+    
+    // Table header
+    core.info(borders.top);
+    const header = '│ ' + 'File'.padEnd(colWidths.file - 2) + ' │ ' +
+                  'Secret Type'.padEnd(colWidths.type - 2) + ' │ ' +
+                  'Line'.padEnd(colWidths.line - 2) + ' │ ' +
+                  'Matched'.padEnd(colWidths.matched - 2) + ' │';
+    core.info(header);
+    core.info(borders.middle);
+
+    secretResult.secrets.forEach(secret => {
+      const file = (secret.File || 'Unknown').substring(0, colWidths.file - 3);
+      const type = (secret.RuleID || secret.Type || 'N/A').substring(0, colWidths.type - 3);
+      const line = (secret.StartLine || secret.Line || 'N/A').toString().substring(0, colWidths.line - 3);
+      const matched = (secret.Match || 'N/A').substring(0, colWidths.matched - 3);
+      
+      const row = '│ ' + file.padEnd(colWidths.file - 2) + ' │ ' +
+                 type.padEnd(colWidths.type - 2) + ' │ ' +
+                 line.padEnd(colWidths.line - 2) + ' │ ' +
+                 matched.padEnd(colWidths.matched - 2) + ' │';
+      core.info(row);
+    });
+    
+    core.info(borders.bottom);
+  }
+
   /**
    * Display consolidated results
    */
   displayResults() {
     core.startGroup('📊 NTU Security Scan Results');
-    
+
     core.info('='.repeat(50));
     core.info('CONSOLIDATED VULNERABILITY REPORT');
     core.info('='.repeat(50));
-    core.info(`   Total Vulnerabilities: ${this.results.total}`);
-    core.info(`   🔴 Critical: ${this.results.critical}`);
-    core.info(`   🟠 High: ${this.results.high}`);
-    core.info(`   🟡 Medium: ${this.results.medium}`);
-    core.info(`   🟢 Low: ${this.results.low}`);
-    core.info('='.repeat(50));
-    
-    // Display per-scanner breakdown
-    if (this.results.scannerResults.length > 1) {
-      core.info('\n📋 Scanner Breakdown:');
-      this.results.scannerResults.forEach(result => {
-        core.info(`\n   ${result.scanner}:`);
-        core.info(`      Total: ${result.total}`);
-        core.info(`      Critical: ${result.critical}, High: ${result.high}`);
-      });
+  
+    // Find Trivy scanner result
+    const trivySbomResult = this.getTrivySbomResult();
+
+    if (trivySbomResult) {
+      core.info(`   Total Vulnerabilities: ${trivySbomResult.total}`);
+      core.info(`   🔴 Critical: ${trivySbomResult.critical}`);
+      core.info(`   🟠 High: ${trivySbomResult.high}`);
+      core.info(`   🟡 Medium: ${trivySbomResult.medium}`);
+      core.info(`   🟢 Low: ${trivySbomResult.low}`);
+
+      // Display vulnerability details in pretty table format
+      // if (trivySbomResult.vulnerabilities && trivySbomResult.vulnerabilities.length > 0) {
+      //   core.info('\n📋 Vulnerability Details:\n');
+        
+      //   // Column widths
+      //   const colWidths = {
+      //     package: 35,
+      //     vuln: 22,
+      //     severity: 12,
+      //     fixed: 18
+      //   };
+        
+      //   // Create table borders
+      //   const topBorder = '┌' + '─'.repeat(colWidths.package) + '┬' + 
+      //                    '─'.repeat(colWidths.vuln) + '┬' + 
+      //                    '─'.repeat(colWidths.severity) + '┬' + 
+      //                    '─'.repeat(colWidths.fixed) + '┐';
+        
+      //   const middleBorder = '├' + '─'.repeat(colWidths.package) + '┼' + 
+      //                       '─'.repeat(colWidths.vuln) + '┼' + 
+      //                       '─'.repeat(colWidths.severity) + '┼' + 
+      //                       '─'.repeat(colWidths.fixed) + '┤';
+        
+      //   const bottomBorder = '└' + '─'.repeat(colWidths.package) + '┴' + 
+      //                       '─'.repeat(colWidths.vuln) + '┴' + 
+      //                       '─'.repeat(colWidths.severity) + '┴' + 
+      //                       '─'.repeat(colWidths.fixed) + '┘';
+        
+      //   // Table header
+      //   core.info(topBorder);
+      //   const header = '│ ' + 'Package'.padEnd(colWidths.package - 2) + ' │ ' +
+      //                 'Vulnerability'.padEnd(colWidths.vuln - 2) + ' │ ' +
+      //                 'Severity'.padEnd(colWidths.severity - 2) + ' │ ' +
+      //                 'Fixed Version'.padEnd(colWidths.fixed - 2) + ' │';
+      //   core.info(header);
+      //   core.info(middleBorder);
+
+      //   // Display vulnerabilities grouped by severity
+      //   const severities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+      //   const severityEmojis = {
+      //     'CRITICAL': '🔴',
+      //     'HIGH': '🟠',
+      //     'MEDIUM': '🟡',
+      //     'LOW': '🟢'
+      //   };
+        
+      //   severities.forEach(severity => {
+      //     const vulnsOfSeverity = trivySbomResult.vulnerabilities.filter(
+      //       v => (v.Severity || '').toUpperCase() === severity
+      //     );
+          
+      //     vulnsOfSeverity.forEach(vuln => {
+      //       const pkg = (vuln.PkgName || 'Unknown').substring(0, colWidths.package - 3);
+      //       const vulnId = (vuln.VulnerabilityID || 'N/A').substring(0, colWidths.vuln - 3);
+      //       const emoji = severityEmojis[severity] || '';
+      //       const sev = (emoji + ' ' + severity).substring(0, colWidths.severity - 3);
+      //       const fixed = (vuln.FixedVersion || 'N/A').substring(0, colWidths.fixed - 3);
+            
+      //       const row = '│ ' + pkg.padEnd(colWidths.package - 2) + ' │ ' +
+      //                  vulnId.padEnd(colWidths.vuln - 2) + ' │ ' +
+      //                  sev.padEnd(colWidths.severity - 2) + ' │ ' +
+      //                  fixed.padEnd(colWidths.fixed - 2) + ' │';
+      //       core.info(row);
+      //     });
+      //   });
+        
+      //   core.info(bottomBorder);
+      // }
+      this.displayVulnerabilityTable(trivySbomResult);
+    } else {
+      core.info('   ⚠️ No Trivy results found.');
     }
-    
+
+    core.info('='.repeat(50));
+
+    // Find Config scanner result
+    const configResult = this.getConfigResult();
+    if (configResult) {
+      core.info('📋 CONFIG SCANNER RESULTS');
+      core.info(`   Total Misconfigurations: ${configResult.total}`);
+      core.info(`   🔴 Critical: ${configResult.critical}`);
+      core.info(`   🟠 High: ${configResult.high}`);
+      core.info(`   🟡 Medium: ${configResult.medium}`);
+      core.info(`   🟢 Low: ${configResult.low}`);
+      core.info(`   Total Config Files Scanned: ${configResult.totalFiles}`);
+      this.displayConfigTable(configResult);
+    } else {
+      core.info('   ⚠️ No Config scan results found.');
+    }
+
+    core.info('='.repeat(50));
+
+    // Find Secret scanner result
+    const secretResult = this.getSecretResult();
+    if (secretResult) {
+      core.info('🔐 SECRET SCANNER RESULTS');
+      core.info(`   Total Secrets Detected: ${secretResult.total}`);
+      this.displaySecretTable(secretResult);
+    } else {
+      core.info('   ⚠️ No Secret scan results found.');
+    }
+
+    core.info('='.repeat(50));
+
     core.endGroup();
   }
 
@@ -35354,7 +35822,7 @@ class NTUSecurityOrchestrator {
     core.setOutput('vulnerabilities-found', this.results.total);
     core.setOutput('critical-count', this.results.critical);
     core.setOutput('high-count', this.results.high);
-    core.setOutput('scan-result', 
+    core.setOutput('scan-result',
       `Found ${this.results.total} vulnerabilities: ` +
       `${this.results.critical} Critical, ${this.results.high} High, ` +
       `${this.results.medium} Medium, ${this.results.low} Low`
@@ -35366,7 +35834,7 @@ class NTUSecurityOrchestrator {
    */
   async postPRComment() {
     const githubToken = core.getInput('github-token');
-    
+
     if (!githubToken || github.context.eventName !== 'pull_request') {
       return;
     }
@@ -35374,12 +35842,12 @@ class NTUSecurityOrchestrator {
     try {
       const octokit = github.getOctokit(githubToken);
       const context = github.context;
-      
-      const status = (this.results.critical > 0 || this.results.high > 0) 
-        ? '🔴 VULNERABILITIES DETECTED' 
+
+      const status = (this.results.critical > 0 || this.results.high > 0)
+        ? '🔴 VULNERABILITIES DETECTED'
         : '✅ NO CRITICAL ISSUES';
       const emoji = (this.results.critical > 0 || this.results.high > 0) ? '⚠️' : '✅';
-      
+
       let scannerBreakdown = '';
       if (this.results.scannerResults.length > 1) {
         scannerBreakdown = '\n### Scanner Breakdown\n\n';
@@ -35388,7 +35856,7 @@ class NTUSecurityOrchestrator {
             `(${result.critical} Critical, ${result.high} High)\n`;
         });
       }
-      
+
       const comment = `## ${emoji} NTU Security Scan Report
 
 **Status:** ${status}
@@ -35402,19 +35870,19 @@ class NTUSecurityOrchestrator {
 | 🟢 Low | ${this.results.low} |
 | **Total** | **${this.results.total}** |
 ${scannerBreakdown}
-${this.results.total > 0 ? 
-  '⚠️ Please review and address the security vulnerabilities found.' : 
-  '✨ No security vulnerabilities detected!'}
+${this.results.total > 0 ?
+          '⚠️ Please review and address the security vulnerabilities found.' :
+          '✨ No security vulnerabilities detected!'}
 
 ---
 *Powered by NTU Security Scanner*`;
-      
+
       await octokit.rest.issues.createComment({
         ...context.repo,
         issue_number: context.issue.number,
         body: comment
       });
-      
+
       core.info('💬 Posted scan results to PR comment');
     } catch (error) {
       core.warning(`Failed to post PR comment: ${error.message}`);
@@ -35426,11 +35894,11 @@ ${this.results.total > 0 ?
    */
   shouldFail() {
     const exitCode = core.getInput('exit-code') || '1';
-    
+
     if (exitCode === '0') {
       return false;
     }
-    
+
     return this.results.total > 0;
   }
 }
@@ -35438,40 +35906,49 @@ ${this.results.total > 0 ?
 async function run() {
   try {
     const orchestrator = new NTUSecurityOrchestrator();
-    
+
     // Register scanners
     orchestrator.registerScanner(trivyScanner);
     orchestrator.registerScanner(cdxgenScanner);
     orchestrator.registerScanner(secretDetectorScanner);
+    orchestrator.registerScanner(configScanner);
     // Add more scanners here as needed:
     // orchestrator.registerScanner(grypeScanner);
     // orchestrator.registerScanner(snykScanner);
-    
+
     // Initialize all scanners
     await orchestrator.initializeScanners();
-    
+
     // Run all scans
     await orchestrator.runScans();
-    
+
     // Display results
     orchestrator.displayResults();
-    
+
     // Set outputs
     orchestrator.setOutputs();
-    
+
     // Post PR comment
     await orchestrator.postPRComment();
-    
+
     // Check if should fail
     if (orchestrator.shouldFail()) {
-      core.setFailed(
-        `NTU Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
-        `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High)`
-      );
+      const trivySbomResult = orchestrator.getTrivySbomResult();
+     if (trivySbomResult) {
+        core.setFailed(
+          `NTU Security Scanner found ${trivySbomResult.total} vulnerabilities ` +
+          `(${trivySbomResult.critical} Critical, ${trivySbomResult.high} High)`
+        );
+      } else {
+        core.setFailed(
+          `NTU Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
+          `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High)`
+        );
+      }
     } else {
       core.info('✅ Security scan completed successfully');
     }
-    
+
   } catch (error) {
     core.setFailed(`NTU Security scan failed: ${error.message}`);
   }
