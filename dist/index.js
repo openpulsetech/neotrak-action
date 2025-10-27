@@ -12740,12 +12740,14 @@ class ConfigScanner {
                     critical: 0,
                     high: 0,
                     medium: 0,
-                    low: 0
+                    low: 0,
+                    misconfigurations: []
                 };
             }
 
             const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
             const files = [];
+            const misconfigurations = [];
             let critical = 0;
             let high = 0;
             let medium = 0;
@@ -12778,6 +12780,13 @@ class ConfigScanner {
                                     break;
                             }
                             total++;
+
+                            misconfigurations.push({
+                            File: result.Target || 'Unknown',
+                            Issue: misconfiguration.Title || misconfiguration.ID || 'N/A',
+                            Severity: severity || 'UNKNOWN',
+                            Line: misconfiguration.CauseMetadata?.StartLine || 'N/A'
+                        });
                         });
                     }
                 });
@@ -12792,13 +12801,6 @@ class ConfigScanner {
                 });
             }
 
-            // core.info(`\n📊 Trivy Config Vulnerability Summary:`);
-            // core.info(`   🔴 Critical: ${critical}`);
-            // core.info(`   🟠 High: ${high}`);
-            // core.info(`   🟡 Medium: ${medium}`);
-            // core.info(`   🟢 Low: ${low}`);
-            // core.info(`   📝 Total: ${total}`);
-
             return {
                 total: fileCount,
                 totalFiles: fileCount,
@@ -12806,7 +12808,8 @@ class ConfigScanner {
                 critical,
                 high,
                 medium,
-                low
+                low,
+                misconfigurations
             };
 
         } catch (err) {
@@ -12818,7 +12821,8 @@ class ConfigScanner {
                 critical: 0,
                 high: 0,
                 medium: 0,
-                low: 0
+                low: 0,
+                misconfigurations: []
             };
         }
     }
@@ -35623,7 +35627,6 @@ class NTUSecurityOrchestrator {
       'MEDIUM': '🟡',
       'LOW': '🟢'
     };
-    
     severities.forEach(severity => {
       const configsOfSeverity = configResult.misconfigurations.filter(
         c => (c.Severity || '').toUpperCase() === severity
@@ -35793,6 +35796,7 @@ class NTUSecurityOrchestrator {
       core.info(`   🟡 Medium: ${configResult.medium}`);
       core.info(`   🟢 Low: ${configResult.low}`);
       core.info(`   Total Config Files Scanned: ${configResult.totalFiles}`);
+  
       this.displayConfigTable(configResult);
     } else {
       core.info('   ⚠️ No Config scan results found.');

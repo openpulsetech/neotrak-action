@@ -236,7 +236,6 @@ class NTUSecurityOrchestrator {
       'MEDIUM': '🟡',
       'LOW': '🟢'
     };
-    
     severities.forEach(severity => {
       const configsOfSeverity = configResult.misconfigurations.filter(
         c => (c.Severity || '').toUpperCase() === severity
@@ -406,6 +405,7 @@ class NTUSecurityOrchestrator {
       core.info(`   🟡 Medium: ${configResult.medium}`);
       core.info(`   🟢 Low: ${configResult.low}`);
       core.info(`   Total Config Files Scanned: ${configResult.totalFiles}`);
+  
       this.displayConfigTable(configResult);
     } else {
       core.info('   ⚠️ No Config scan results found.');
