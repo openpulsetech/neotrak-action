@@ -267,7 +267,7 @@ class NTUSecurityOrchestrator {
     core.info('\n📋 Secret Details:\n');
     
     const colWidths = {
-      file: 55,
+      file: 70,
       line: 10,
       matched: 25
     };
