@@ -35676,6 +35676,7 @@ class NTUSecurityOrchestrator {
     core.info(borders.middle);
 
     secretResult.secrets.forEach(secret => {
+      console.log(secret);
       const file = (secret.File || 'Unknown').substring(0, colWidths.file - 3);
       const type = (secret.RuleID || secret.Type || 'N/A').substring(0, colWidths.type - 3);
       const line = (secret.StartLine || secret.Line || 'N/A').toString().substring(0, colWidths.line - 3);
