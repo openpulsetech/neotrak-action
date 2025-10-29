@@ -267,8 +267,7 @@ class NTUSecurityOrchestrator {
     core.info('\n📋 Secret Details:\n');
     
     const colWidths = {
-      file: 35,
-      type: 25,
+      file: 45,
       line: 10,
       matched: 25
     };
@@ -278,21 +277,18 @@ class NTUSecurityOrchestrator {
     // Table header
     core.info(borders.top);
     const header = '│ ' + 'File'.padEnd(colWidths.file - 2) + ' │ ' +
-                  'Secret Type'.padEnd(colWidths.type - 2) + ' │ ' +
                   'Line'.padEnd(colWidths.line - 2) + ' │ ' +
-                  'Matched'.padEnd(colWidths.matched - 2) + ' │';
+                  'Matched Secret'.padEnd(colWidths.matched - 2) + ' │';
     core.info(header);
     core.info(borders.middle);
 
     secretResult.secrets.forEach(secret => {
-      console.log(secret);
-      const file = (secret.File || 'Unknown').substring(0, colWidths.file - 3);
-      const type = (secret.RuleID || secret.Type || 'N/A').substring(0, colWidths.type - 3);
+      const cleanFile = (secret.File || 'Unknown').replace(/^\/+/, '');
+      const file = cleanFile.substring(0, colWidths.file - 3);
       const line = (secret.StartLine || secret.Line || 'N/A').toString().substring(0, colWidths.line - 3);
       const matched = (secret.Match || 'N/A').substring(0, colWidths.matched - 3);
       
       const row = '│ ' + file.padEnd(colWidths.file - 2) + ' │ ' +
-                 type.padEnd(colWidths.type - 2) + ' │ ' +
                  line.padEnd(colWidths.line - 2) + ' │ ' +
                  matched.padEnd(colWidths.matched - 2) + ' │';
       core.info(row);
