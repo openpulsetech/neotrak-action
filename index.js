@@ -267,8 +267,7 @@ class NTUSecurityOrchestrator {
     core.info('\n📋 Secret Details:\n');
     
     const colWidths = {
-      file: 35,
-      type: 25,
+      file: 70,
       line: 10,
       matched: 25
     };
@@ -278,20 +277,18 @@ class NTUSecurityOrchestrator {
     // Table header
     core.info(borders.top);
     const header = '│ ' + 'File'.padEnd(colWidths.file - 2) + ' │ ' +
-                  'Secret Type'.padEnd(colWidths.type - 2) + ' │ ' +
                   'Line'.padEnd(colWidths.line - 2) + ' │ ' +
-                  'Matched'.padEnd(colWidths.matched - 2) + ' │';
+                  'Matched Secret'.padEnd(colWidths.matched - 2) + ' │';
     core.info(header);
     core.info(borders.middle);
 
     secretResult.secrets.forEach(secret => {
-      const file = (secret.File || 'Unknown').substring(0, colWidths.file - 3);
-      const type = (secret.RuleID || secret.Type || 'N/A').substring(0, colWidths.type - 3);
+      const cleanFile = (secret.File || 'Unknown').replace(/^\/+/, '');
+      const file = cleanFile.substring(0, colWidths.file - 3);
       const line = (secret.StartLine || secret.Line || 'N/A').toString().substring(0, colWidths.line - 3);
       const matched = (secret.Match || 'N/A').substring(0, colWidths.matched - 3);
       
       const row = '│ ' + file.padEnd(colWidths.file - 2) + ' │ ' +
-                 type.padEnd(colWidths.type - 2) + ' │ ' +
                  line.padEnd(colWidths.line - 2) + ' │ ' +
                  matched.padEnd(colWidths.matched - 2) + ' │';
       core.info(row);
@@ -321,73 +318,6 @@ class NTUSecurityOrchestrator {
       core.info(`   🟢 Low: ${trivySbomResult.low}`);
 
       // Display vulnerability details in pretty table format
-      // if (trivySbomResult.vulnerabilities && trivySbomResult.vulnerabilities.length > 0) {
-      //   core.info('\n📋 Vulnerability Details:\n');
-        
-      //   // Column widths
-      //   const colWidths = {
-      //     package: 35,
-      //     vuln: 22,
-      //     severity: 12,
-      //     fixed: 18
-      //   };
-        
-      //   // Create table borders
-      //   const topBorder = '┌' + '─'.repeat(colWidths.package) + '┬' + 
-      //                    '─'.repeat(colWidths.vuln) + '┬' + 
-      //                    '─'.repeat(colWidths.severity) + '┬' + 
-      //                    '─'.repeat(colWidths.fixed) + '┐';
-        
-      //   const middleBorder = '├' + '─'.repeat(colWidths.package) + '┼' + 
-      //                       '─'.repeat(colWidths.vuln) + '┼' + 
-      //                       '─'.repeat(colWidths.severity) + '┼' + 
-      //                       '─'.repeat(colWidths.fixed) + '┤';
-        
-      //   const bottomBorder = '└' + '─'.repeat(colWidths.package) + '┴' + 
-      //                       '─'.repeat(colWidths.vuln) + '┴' + 
-      //                       '─'.repeat(colWidths.severity) + '┴' + 
-      //                       '─'.repeat(colWidths.fixed) + '┘';
-        
-      //   // Table header
-      //   core.info(topBorder);
-      //   const header = '│ ' + 'Package'.padEnd(colWidths.package - 2) + ' │ ' +
-      //                 'Vulnerability'.padEnd(colWidths.vuln - 2) + ' │ ' +
-      //                 'Severity'.padEnd(colWidths.severity - 2) + ' │ ' +
-      //                 'Fixed Version'.padEnd(colWidths.fixed - 2) + ' │';
-      //   core.info(header);
-      //   core.info(middleBorder);
-
-      //   // Display vulnerabilities grouped by severity
-      //   const severities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
-      //   const severityEmojis = {
-      //     'CRITICAL': '🔴',
-      //     'HIGH': '🟠',
-      //     'MEDIUM': '🟡',
-      //     'LOW': '🟢'
-      //   };
-        
-      //   severities.forEach(severity => {
-      //     const vulnsOfSeverity = trivySbomResult.vulnerabilities.filter(
-      //       v => (v.Severity || '').toUpperCase() === severity
-      //     );
-          
-      //     vulnsOfSeverity.forEach(vuln => {
-      //       const pkg = (vuln.PkgName || 'Unknown').substring(0, colWidths.package - 3);
-      //       const vulnId = (vuln.VulnerabilityID || 'N/A').substring(0, colWidths.vuln - 3);
-      //       const emoji = severityEmojis[severity] || '';
-      //       const sev = (emoji + ' ' + severity).substring(0, colWidths.severity - 3);
-      //       const fixed = (vuln.FixedVersion || 'N/A').substring(0, colWidths.fixed - 3);
-            
-      //       const row = '│ ' + pkg.padEnd(colWidths.package - 2) + ' │ ' +
-      //                  vulnId.padEnd(colWidths.vuln - 2) + ' │ ' +
-      //                  sev.padEnd(colWidths.severity - 2) + ' │ ' +
-      //                  fixed.padEnd(colWidths.fixed - 2) + ' │';
-      //       core.info(row);
-      //     });
-      //   });
-        
-      //   core.info(bottomBorder);
-      // }
       this.displayVulnerabilityTable(trivySbomResult);
     } else {
       core.info('   ⚠️ No Trivy results found.');
