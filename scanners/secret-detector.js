@@ -99,6 +99,24 @@ class SecretDetectorScanner {
   createCustomRules() {
     return `
 [[rules]]
+id = "spring-placeholder-with-secret"
+description = "Secret embedded as default value in Spring Boot property placeholder"
+regex = '''\\$\\{[A-Z0-9_]+:([A-Za-z0-9+/=_\\-]{20,})\\}'''
+tags = ["secret", "spring", "placeholder", "default-value"]
+
+[[rules]]
+id = "spring-placeholder-api-key"
+description = "API key patterns in Spring Boot placeholders"
+regex = '''(?i)\\$\\{[A-Z0-9_]*(?:API|KEY|TOKEN|SECRET)[A-Z0-9_]*:([A-Za-z0-9_\\-]{20,})\\}'''
+tags = ["apikey", "spring", "placeholder"]
+
+[[rules]]
+id = "openai-groq-api-key"
+description = "OpenAI or Groq API Key"
+regex = '''(sk|gsk)_[A-Za-z0-9_\\-]{20,}'''
+tags = ["apikey", "openai", "groq"]
+
+[[rules]]
 id = "strict-secret-detection"
 description = "Detect likely passwords or secrets with high entropy"
 regex = '''(?i)(password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["']([A-Za-z0-9@#\\-_$%!]{10,})["']'''
@@ -133,6 +151,12 @@ id = "firebase-api-key"
 description = "Firebase API Key"
 regex = '''AIza[0-9A-Za-z\\-_]{35}'''
 tags = ["firebase", "apikey"]
+
+[[rules]]
+id = "gitlab-token"
+description = "GitLab Personal Access Token"
+regex = '''glpat-[0-9a-zA-Z\\-_]{20,}'''
+tags = ["gitlab", "token"]
 `;
   }
 
