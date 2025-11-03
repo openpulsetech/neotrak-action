@@ -9,7 +9,7 @@ const path = require('path');
 // const grypeScanner = require('./scanners/grype');
 // const snykScanner = require('./scanners/snyk');
 
-class NTUSecurityOrchestrator {
+class NeotrakSecurityOrchestrator {
   constructor() {
     this.scanners = [];
     this.results = {
@@ -44,7 +44,7 @@ class NTUSecurityOrchestrator {
    * Initialize all scanners
    */
   async initializeScanners() {
-    core.startGroup('🔧 NTU Security Scanner Setup');
+    core.startGroup('🔧 Neotrak Security Scanner Setup');
 
     for (const scanner of this.scanners) {
       try {
@@ -63,7 +63,7 @@ class NTUSecurityOrchestrator {
    * Run all registered scanners
    */
   async runScans() {
-    core.startGroup('🔍 NTU Security Scan');
+    core.startGroup('🔍 Neotrak Security Scan');
 
     const scanType = core.getInput('scan-type') || 'fs';
     const scanTarget = core.getInput('scan-target') || '.';
@@ -304,7 +304,7 @@ class NTUSecurityOrchestrator {
    * Display consolidated results
    */
   displayResults() {
-    core.startGroup('📊 NTU Security Scan Results');
+    core.startGroup('📊 Neotrak Security Scan Results');
 
     core.info('='.repeat(50));
     core.info('CONSOLIDATED VULNERABILITY REPORT');
@@ -470,7 +470,7 @@ class NTUSecurityOrchestrator {
         });
       }
 
-      const comment = `## ${emoji} NTU Security Scan Report
+      const comment = `## ${emoji} Neotrak Security Scan Report
 
 **Status:** ${status}
 
@@ -488,7 +488,7 @@ ${this.results.total > 0 ?
           '✨ No security vulnerabilities detected!'}
 
 ---
-*Powered by NTU Security Scanner*`;
+*Powered by Neotrak Security Scanner*`;
 
       await octokit.rest.issues.createComment({
         ...context.repo,
@@ -506,6 +506,13 @@ ${this.results.total > 0 ?
    * Determine if workflow should fail
    */
   shouldFail() {
+    const failOnVulneribilityInput = core.getInput('fail_on_vulneribility');
+    
+    // If fail_on_vulneribility is explicitly set to 'false', never fail the build
+    if (failOnVulneribilityInput === 'false') {
+      return false;
+    }
+
     const exitCode = core.getInput('exit-code') || '1';
 
     if (exitCode === '0') {
@@ -518,7 +525,7 @@ ${this.results.total > 0 ?
 
 async function run() {
   try {
-    const orchestrator = new NTUSecurityOrchestrator();
+    const orchestrator = new NeotrakSecurityOrchestrator();
 
     // Register scanners
     orchestrator.registerScanner(trivyScanner);
@@ -545,25 +552,45 @@ async function run() {
     await orchestrator.postPRComment();
 
     // Check if should fail
+    const failOnVulneribilityInput = core.getInput('fail_on_vulneribility');
+    const failOnVulneribilityDisabled = failOnVulneribilityInput === 'false';
+    
     if (orchestrator.shouldFail()) {
       const trivySbomResult = orchestrator.getTrivySbomResult();
      if (trivySbomResult) {
         core.setFailed(
-          `NTU Security Scanner found ${trivySbomResult.total} vulnerabilities ` +
+          `Neotrak Security Scanner found ${trivySbomResult.total} vulnerabilities ` +
           `(${trivySbomResult.critical} Critical, ${trivySbomResult.high} High)`
         );
       } else {
         core.setFailed(
-          `NTU Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
+          `Neotrak Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
           `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High)`
         );
       }
     } else {
-      core.info('✅ Security scan completed successfully');
+      if (orchestrator.results.total > 0 && failOnVulneribilityDisabled) {
+        const trivySbomResult = orchestrator.getTrivySbomResult();
+        if (trivySbomResult) {
+          core.warning(
+            `⚠️ Neotrak Security Scanner found ${trivySbomResult.total} vulnerabilities ` +
+            `(${trivySbomResult.critical} Critical, ${trivySbomResult.high} High). ` +
+            `Build proceeding because fail_on_vulneribility is set to false.`
+          );
+        } else {
+          core.warning(
+            `⚠️ Neotrak Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
+            `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High). ` +
+            `Build proceeding because fail_on_vulneribility is set to false.`
+          );
+        }
+      } else {
+        core.info('✅ Security scan completed successfully');
+      }
     }
 
   } catch (error) {
-    core.setFailed(`NTU Security scan failed: ${error.message}`);
+    core.setFailed(`Neotrak Security scan failed: ${error.message}`);
   }
 }
 

@@ -21,7 +21,7 @@ class CdxgenScanner {
   // async installTrivy() {
   //   try {
   //     const TRIVY_VERSION = '0.66.0'; // NO leading 'v'
-  //     const SCANNER_BINARY = 'ntu-scanner-trivy';
+  //     const SCANNER_BINARY = 'neotrak-scanner-trivy';
 
   //     if (!process.env.RUNNER_TEMP) process.env.RUNNER_TEMP = os.tmpdir();
   //     if (!process.env.RUNNER_TOOL_CACHE) process.env.RUNNER_TOOL_CACHE = path.join(os.homedir(), '.cache', 'actions');
@@ -70,7 +70,7 @@ class CdxgenScanner {
 
   //     const cachedPath = await tc.cacheDir(
   //       path.dirname(scannerPath),
-  //       'ntu-scanner-trivy',
+  //       'neotrak-scanner-trivy',
   //       TRIVY_VERSION
   //     );
 
