@@ -45439,8 +45439,8 @@ class NTUSecurityOrchestrator {
         maxBodyLength: Infinity,
         timeout: 120000
       });
-
       core.info(`✅ Upload successful: ${response.status} ${response.statusText}`);
+      core.info(`Response Data: ${JSON.stringify(response.data)}`);
     } catch (error) {
       core.error(`❌ Upload failed: ${error.message}`);
       if (error.response) {
