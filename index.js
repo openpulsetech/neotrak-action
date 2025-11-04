@@ -164,7 +164,7 @@ class NTUSecurityOrchestrator {
         contentType: 'application/json'
       });
       formData.append('sbomFile', fs.createReadStream(sbomPath));
-      formData.append('displayName', process.env.DISPLAY_NAME || 'default');
+      formData.append('displayName', process.env.DISPLAY_NAME || 'sbom');
       formData.append('branchName', process.env.BRANCH_NAME || 'main');
       if (process.env.CICD_SOURCE) formData.append('cicdSource', process.env.CICD_SOURCE);
       if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
