@@ -5,6 +5,11 @@ const cdxgenScanner = require('./scanners/sbom');
 const secretDetectorScanner = require('./scanners/secret-detector');
 const configScanner = require('./scanners/config');
 const path = require('path');
+
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
+
 // Future scanners can be imported here
 // const grypeScanner = require('./scanners/grype');
 // const snykScanner = require('./scanners/snyk');
@@ -120,6 +125,72 @@ class NTUSecurityOrchestrator {
     this.results.high += scanResult.high || 0;
     this.results.medium += scanResult.medium || 0;
     this.results.low += scanResult.low || 0;
+  }
+
+    /**
+   * Upload combined scan results (config + secrets) + SBOM file
+   */
+  async uploadCombinedResults(projectId, configResult, secretResult) {
+    try {
+      const apiUrl = `https://dev.neoTrak.io/open-pulse/project/upload-all/${projectId}`;
+      core.info(`📤 Preparing upload to: ${apiUrl}`);
+
+      // ✅ 1. Build CombinedScanRequest JSON structure
+      const combinedScanRequest = {
+        configScanResponseDto: configResult || {},
+        scannerSecretResponse: (secretResult?.secrets || []).map(item => ({
+          RuleID: item.RuleID || '',
+          Description: item.Description || '',
+          File: item.File || '',
+          Match: item.Match || '',
+          Secret: item.Secret || '',
+          StartLine: item.StartLine || '',
+          EndLine: item.EndLine || '',
+          StartColumn: item.StartColumn || '',
+          EndColumn: item.EndColumn || ''
+        }))
+      };
+
+      // ✅ 2. Get SBOM file from Trivy/CDXGen result
+      const sbomPath = this.getTrivySbomResult()?.sbomPath;
+      if (!sbomPath || !fs.existsSync(sbomPath)) {
+        core.warning('⚠️ SBOM file not found — skipping upload.');
+        return;
+      }
+
+      // ✅ 3. Prepare multipart form-data
+      const formData = new FormData();
+      formData.append('combinedScanRequest', JSON.stringify(combinedScanRequest), {
+        contentType: 'application/json'
+      });
+      formData.append('sbomFile', fs.createReadStream(sbomPath));
+      formData.append('displayName', process.env.DISPLAY_NAME || 'default');
+      formData.append('branchName', process.env.BRANCH_NAME || 'main');
+      if (process.env.CICD_SOURCE) formData.append('cicdSource', process.env.CICD_SOURCE);
+      if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
+
+      // ✅ 4. Headers (if authentication is used)
+      const headers = {
+        ...formData.getHeaders(),
+        'x-api-key': process.env.X_API_KEY || '',
+        'x-secret-key': process.env.X_SECRET_KEY || '',
+        'x-tenant-key': process.env.X_TENANT_KEY || ''
+      };
+
+      // ✅ 5. Send POST request
+      const response = await axios.post(apiUrl, formData, {
+        headers,
+        maxBodyLength: Infinity,
+        timeout: 120000
+      });
+
+      core.info(`✅ Upload successful: ${response.status} ${response.statusText}`);
+    } catch (error) {
+      core.error(`❌ Upload failed: ${error.message}`);
+      if (error.response) {
+        core.error(`Response: ${JSON.stringify(error.response.data)}`);
+      }
+    }
   }
 
   getTrivySbomResult() {
@@ -470,6 +541,20 @@ async function run() {
 
     // Set outputs
     orchestrator.setOutputs();
+
+    // ✅ Upload results to your backend
+    const projectId = process.env.PROJECT_ID;
+    if (projectId) {
+      const configResult = orchestrator.getConfigResult();
+      console.log('Uploading combined results to backend...');
+      console.log(`Project ID: ${projectId}`);
+      console.log('Config Result:', configResult);
+      const secretResult = orchestrator.getSecretResult();
+      console.log('Secret Result:', secretResult);
+      await orchestrator.uploadCombinedResults(projectId, configResult, secretResult);
+    } else {
+      core.warning('⚠️ PROJECT_ID not set — skipping upload to /upload-all');
+    }
 
     // Post PR comment
     await orchestrator.postPRComment();
