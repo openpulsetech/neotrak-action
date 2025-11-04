@@ -45388,9 +45388,7 @@ class NTUSecurityOrchestrator {
    */
   async uploadCombinedResults(projectId, configResult, secretResult) {
     try {
-      // const apiUrl = `https://dev.neoTrak.io/open-pulse/project/upload-all/${projectId}`;
-      const apiUrl = `http://localhost:4444/open-pulse/project/upload-all/${projectId}`;
-
+      const apiUrl = `https://dev.neoTrak.io/open-pulse/project/upload-all/${projectId}`;
       core.info(`📤 Preparing upload to: ${apiUrl}`);
 
       // ✅ 1. Build CombinedScanRequest JSON structure
