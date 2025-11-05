@@ -32054,13 +32054,13 @@ class SecretDetectorScanner {
 [[rules]]
 id = "strict-secret-detection-quoted"
 description = "Detect likely passwords or secrets with quotes (high entropy)"
-regex = '''(?i)(password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["']([A-Za-z0-9@#\\-_$%!+/=]{6,})["']'''
+regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["']([A-Za-z0-9@#\\-_$%!+/=]{6,})["']'''
 tags = ["key", "secret", "generic", "password"]
 
 [[rules]]
 id = "strict-secret-detection-unquoted"
 description = "Detect likely passwords or secrets without quotes in YAML"
-regex = '''(?i)(password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*([A-Za-z0-9@#\\-_$%!+/=]{6,})'''
+regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*([A-Za-z0-9@#\\-_$%!+/=]{6,})'''
 tags = ["key", "secret", "generic", "password", "yaml"]
 
 [[rules]]
@@ -32072,7 +32072,7 @@ tags = ["aws", "key", "secret"]
 [[rules]]
 id = "aws-secret-unquoted"
 description = "AWS Secret Access Key (unquoted)"
-regex = '''(?i)(aws[-_]?secret[-_]?access[-_]?key|secret[-_]?key|access[-_]?secret)\\s*[=:]\\s*([0-9a-zA-Z/+]{40})'''
+regex = '''(?i)(?:aws[-_]?secret[-_]?access[-_]?key|secret[-_]?key|access[-_]?secret)\\s*[=:]\\s*([0-9a-zA-Z/+]{40})'''
 tags = ["aws", "key", "secret"]
 
 [[rules]]
@@ -32084,7 +32084,7 @@ tags = ["aws", "key"]
 [[rules]]
 id = "digitalocean-spaces-key"
 description = "DigitalOcean Spaces Access Key"
-regex = '''(?i)(access[-_]?key|access[-_]?secret)\\s*:\\s*([A-Z0-9]{20,})'''
+regex = '''(?i)(?:access[-_]?key|access[-_]?secret)\\s*:\\s*([A-Z0-9]{20,})'''
 tags = ["digitalocean", "spaces", "key"]
 
 [[rules]]
@@ -32108,13 +32108,13 @@ tags = ["firebase", "apikey"]
 [[rules]]
 id = "generic-api-key-unquoted"
 description = "Generic API keys in YAML (unquoted)"
-regex = '''(?i)(api[-_]?key|apikey)\\s*:\\s*([A-Za-z0-9_\\-]{15,})'''
+regex = '''(?i)(?:api[-_]?key|apikey)\\s*:\\s*([A-Za-z0-9_\\-]{15,})'''
 tags = ["apikey", "yaml"]
 
 [[rules]]
 id = "hex-secret-key"
 description = "Hexadecimal secret keys (64+ chars)"
-regex = '''(?i)(secret[-_]?key|secretkey)\\s*[=:]\\s*["']?([a-f0-9]{64,})["']?'''
+regex = '''(?i)(?:secret[-_]?key|secretkey)\\s*[=:]\\s*["']?([a-f0-9]{64,})["']?'''
 tags = ["secret", "hex"]
 
 [[rules]]
@@ -32126,7 +32126,7 @@ tags = ["groq", "apikey"]
 [[rules]]
 id = "mailjet-keys"
 description = "Mailjet API keys"
-regex = '''(?i)(mailjet[-_]?(api|secret)[-_]?key)\\s*:\\s*["']?([A-Za-z0-9]{10,})["']?'''
+regex = '''(?i)(?:mailjet[-_]?(?:api|secret)[-_]?key)\\s*:\\s*["']?([A-Za-z0-9]{10,})["']?'''
 tags = ["mailjet", "apikey"]
 `;
   }
@@ -45567,19 +45567,32 @@ class NTUSecurityOrchestrator {
       core.info(`\n📋 Full CombinedScanRequest JSON:`);
       core.info(JSON.stringify(combinedScanRequest, null, 2));
 
-      // ✅ 6. Send POST request
+      // ✅ 6. Send POST request with extended timeout
+      core.info('⏳ Sending request to API (this may take a few minutes)...');
       const response = await index_axios.post(apiUrl, formData, {
         headers,
         maxBodyLength: Infinity,
-        timeout: 120000
+        timeout: 300000  // Increased to 5 minutes (300 seconds)
       });
       core.info(`✅ Upload successful: ${response.status} ${response.statusText}`);
       core.info(`Response Data: ${JSON.stringify(response.data)}`);
     } catch (error) {
       core.error(`❌ Upload failed: ${error.message}`);
-      if (error.response) {
-        core.error(`Response: ${JSON.stringify(error.response.data)}`);
+
+      if (error.code === 'ECONNABORTED') {
+        core.error('⏱️  The request timed out. The API server may be processing a large SBOM file.');
+        core.error('💡 Suggestion: Check your API server logs to see if the request is still processing.');
       }
+
+      if (error.response) {
+        core.error(`Response Status: ${error.response.status}`);
+        core.error(`Response Data: ${JSON.stringify(error.response.data)}`);
+      } else if (error.request) {
+        core.error('No response received from server. The request was made but no response was received.');
+      }
+
+      // Don't throw the error, just log it to prevent workflow failure
+      core.warning('Upload failed but continuing workflow...');
     }
   }
 

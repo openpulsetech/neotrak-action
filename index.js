@@ -208,19 +208,32 @@ class NTUSecurityOrchestrator {
       core.info(`\n📋 Full CombinedScanRequest JSON:`);
       core.info(JSON.stringify(combinedScanRequest, null, 2));
 
-      // ✅ 6. Send POST request
+      // ✅ 6. Send POST request with extended timeout
+      core.info('⏳ Sending request to API (this may take a few minutes)...');
       const response = await axios.post(apiUrl, formData, {
         headers,
         maxBodyLength: Infinity,
-        timeout: 120000
+        timeout: 300000  // Increased to 5 minutes (300 seconds)
       });
       core.info(`✅ Upload successful: ${response.status} ${response.statusText}`);
       core.info(`Response Data: ${JSON.stringify(response.data)}`);
     } catch (error) {
       core.error(`❌ Upload failed: ${error.message}`);
-      if (error.response) {
-        core.error(`Response: ${JSON.stringify(error.response.data)}`);
+
+      if (error.code === 'ECONNABORTED') {
+        core.error('⏱️  The request timed out. The API server may be processing a large SBOM file.');
+        core.error('💡 Suggestion: Check your API server logs to see if the request is still processing.');
       }
+
+      if (error.response) {
+        core.error(`Response Status: ${error.response.status}`);
+        core.error(`Response Data: ${JSON.stringify(error.response.data)}`);
+      } else if (error.request) {
+        core.error('No response received from server. The request was made but no response was received.');
+      }
+
+      // Don't throw the error, just log it to prevent workflow failure
+      core.warning('Upload failed but continuing workflow...');
     }
   }
 

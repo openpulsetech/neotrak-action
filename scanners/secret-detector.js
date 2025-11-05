@@ -102,13 +102,13 @@ class SecretDetectorScanner {
 [[rules]]
 id = "strict-secret-detection-quoted"
 description = "Detect likely passwords or secrets with quotes (high entropy)"
-regex = '''(?i)(password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["']([A-Za-z0-9@#\\-_$%!+/=]{6,})["']'''
+regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["']([A-Za-z0-9@#\\-_$%!+/=]{6,})["']'''
 tags = ["key", "secret", "generic", "password"]
 
 [[rules]]
 id = "strict-secret-detection-unquoted"
 description = "Detect likely passwords or secrets without quotes in YAML"
-regex = '''(?i)(password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*([A-Za-z0-9@#\\-_$%!+/=]{6,})'''
+regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*([A-Za-z0-9@#\\-_$%!+/=]{6,})'''
 tags = ["key", "secret", "generic", "password", "yaml"]
 
 [[rules]]
@@ -120,7 +120,7 @@ tags = ["aws", "key", "secret"]
 [[rules]]
 id = "aws-secret-unquoted"
 description = "AWS Secret Access Key (unquoted)"
-regex = '''(?i)(aws[-_]?secret[-_]?access[-_]?key|secret[-_]?key|access[-_]?secret)\\s*[=:]\\s*([0-9a-zA-Z/+]{40})'''
+regex = '''(?i)(?:aws[-_]?secret[-_]?access[-_]?key|secret[-_]?key|access[-_]?secret)\\s*[=:]\\s*([0-9a-zA-Z/+]{40})'''
 tags = ["aws", "key", "secret"]
 
 [[rules]]
@@ -132,7 +132,7 @@ tags = ["aws", "key"]
 [[rules]]
 id = "digitalocean-spaces-key"
 description = "DigitalOcean Spaces Access Key"
-regex = '''(?i)(access[-_]?key|access[-_]?secret)\\s*:\\s*([A-Z0-9]{20,})'''
+regex = '''(?i)(?:access[-_]?key|access[-_]?secret)\\s*:\\s*([A-Z0-9]{20,})'''
 tags = ["digitalocean", "spaces", "key"]
 
 [[rules]]
@@ -156,13 +156,13 @@ tags = ["firebase", "apikey"]
 [[rules]]
 id = "generic-api-key-unquoted"
 description = "Generic API keys in YAML (unquoted)"
-regex = '''(?i)(api[-_]?key|apikey)\\s*:\\s*([A-Za-z0-9_\\-]{15,})'''
+regex = '''(?i)(?:api[-_]?key|apikey)\\s*:\\s*([A-Za-z0-9_\\-]{15,})'''
 tags = ["apikey", "yaml"]
 
 [[rules]]
 id = "hex-secret-key"
 description = "Hexadecimal secret keys (64+ chars)"
-regex = '''(?i)(secret[-_]?key|secretkey)\\s*[=:]\\s*["']?([a-f0-9]{64,})["']?'''
+regex = '''(?i)(?:secret[-_]?key|secretkey)\\s*[=:]\\s*["']?([a-f0-9]{64,})["']?'''
 tags = ["secret", "hex"]
 
 [[rules]]
@@ -174,7 +174,7 @@ tags = ["groq", "apikey"]
 [[rules]]
 id = "mailjet-keys"
 description = "Mailjet API keys"
-regex = '''(?i)(mailjet[-_]?(api|secret)[-_]?key)\\s*:\\s*["']?([A-Za-z0-9]{10,})["']?'''
+regex = '''(?i)(?:mailjet[-_]?(?:api|secret)[-_]?key)\\s*:\\s*["']?([A-Za-z0-9]{10,})["']?'''
 tags = ["mailjet", "apikey"]
 `;
   }
