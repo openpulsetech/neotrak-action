@@ -45490,102 +45490,142 @@ class NTUSecurityOrchestrator {
    * Upload combined scan results (config + secrets) + SBOM file
    */
   async uploadCombinedResults(projectId, configResult, secretResult) {
-    try {
-      const apiUrl = `https://dev.neoTrak.io/open-pulse/project/upload-all/${projectId}`;
-     
-      // ✅ 1. Build CombinedScanRequest JSON structure matching API DTOs
-      const combinedScanRequest = {
-        configScanResponseDto: configResult?.configScanResponseDto || {
-          ArtifactName: '',
-          ArtifactType: '',
-          Results: []
-        },
-        scannerSecretResponse: (secretResult?.secrets || []).map(item => ({
-          RuleID: item.RuleID || '',
-          Description: item.Description || '',
-          File: item.File || '',
-          Match: item.Match || '',
-          Secret: item.Secret || '',
-          StartLine: item.StartLine || '',
-          EndLine: item.EndLine || '',
-          StartColumn: item.StartColumn || '',
-          EndColumn: item.EndColumn || ''
-        }))
-      };
+    const maxRetries = 3;
+    const retryDelay = 5000; // 5 seconds base delay
+    let lastError = null;
 
-      // ✅ 2. Get SBOM file from Trivy/CDXGen result
-      const sbomPath = this.getTrivySbomResult()?.sbomPath;
-      if (!sbomPath || !fs.existsSync(sbomPath)) {
-        core.warning('⚠️ SBOM file not found — skipping upload.');
-        return;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const apiUrl = `https://dev.neoTrak.io/open-pulse/project/upload-all/${projectId}`;
+        core.info(`📤 Preparing upload to: ${apiUrl} (Attempt ${attempt}/${maxRetries})`);
+
+        if (attempt > 1) {
+          const delay = retryDelay * attempt;
+          core.info(`⏳ Retry attempt ${attempt}/${maxRetries} after ${delay/1000}s delay...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        // ✅ 1. Build CombinedScanRequest JSON structure matching API DTOs
+        const combinedScanRequest = {
+          configScanResponseDto: configResult?.configScanResponseDto || {
+            ArtifactName: '',
+            ArtifactType: '',
+            Results: []
+          },
+          scannerSecretResponse: (secretResult?.secrets || []).map(item => ({
+            RuleID: item.RuleID || '',
+            Description: item.Description || '',
+            File: item.File || '',
+            Match: item.Match || '',
+            Secret: item.Secret || '',
+            StartLine: item.StartLine || '',
+            EndLine: item.EndLine || '',
+            StartColumn: item.StartColumn || '',
+            EndColumn: item.EndColumn || ''
+          }))
+        };
+
+        // ✅ 2. Get SBOM file from Trivy/CDXGen result
+        const sbomPath = this.getTrivySbomResult()?.sbomPath;
+        if (!sbomPath || !fs.existsSync(sbomPath)) {
+          core.warning('⚠️ SBOM file not found — skipping upload.');
+          return;
+        }
+
+        // ✅ 3. Prepare multipart form-data
+        const formData = new index_FormData();
+        formData.append('combinedScanRequest', JSON.stringify(combinedScanRequest), {
+          contentType: 'application/json'
+        });
+        formData.append('sbomFile', fs.createReadStream(sbomPath));
+        formData.append('displayName', process.env.DISPLAY_NAME || 'sbom');
+        formData.append('branchName', process.env.BRANCH_NAME || 'main');
+        if (process.env.CICD_SOURCE) formData.append('cicdSource', process.env.CICD_SOURCE);
+        if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
+
+        // ✅ 4. Headers (if authentication is used)
+        const headers = {
+          ...formData.getHeaders(),
+          'x-api-key': process.env.X_API_KEY || '',
+          'x-secret-key': process.env.X_SECRET_KEY || '',
+          'x-tenant-key': process.env.X_TENANT_KEY || ''
+        };
+
+        // ✅ 5. Print request details (only on first attempt)
+        if (attempt === 1) {
+          core.info('📋 Request Details:');
+          core.info(`URL: ${apiUrl}`);
+          core.info(`Headers: ${JSON.stringify(headers, null, 2)}`);
+          core.info(`FormData fields: ${JSON.stringify({
+            combinedScanRequest: 'JSON string (see below)',
+            sbomFile: sbomPath,
+            displayName: process.env.DISPLAY_NAME || 'sbom',
+            branchName: process.env.BRANCH_NAME || 'main',
+            cicdSource: process.env.CICD_SOURCE || 'not set',
+            jobId: process.env.JOB_ID || 'not set'
+          }, null, 2)}`);
+          core.info(`\n📦 CombinedScanRequest Structure:`);
+          core.info(`  - configScanResponseDto:`);
+          core.info(`      ArtifactName: ${combinedScanRequest.configScanResponseDto.ArtifactName}`);
+          core.info(`      ArtifactType: ${combinedScanRequest.configScanResponseDto.ArtifactType}`);
+          core.info(`      Results count: ${combinedScanRequest.configScanResponseDto.Results?.length || 0}`);
+          core.info(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
+          core.info(`\n📋 Full CombinedScanRequest JSON:`);
+          core.info(JSON.stringify(combinedScanRequest, null, 2));
+        }
+
+        // ✅ 6. Send POST request with extended timeout
+        core.info('⏳ Sending request to API (this may take a few minutes)...');
+        const response = await index_axios.post(apiUrl, formData, {
+          headers,
+          maxBodyLength: Infinity,
+          timeout: 300000  // Increased to 5 minutes (300 seconds)
+        });
+
+        core.info(`✅ Upload successful: ${response.status} ${response.statusText}`);
+        core.info(`Response Data: ${JSON.stringify(response.data)}`);
+        return; // Success - exit the retry loop
+
+      } catch (error) {
+        lastError = error;
+        const isRetryable = error.code === 'ETIMEDOUT' ||
+                           error.code === 'ECONNABORTED' ||
+                           error.code === 'ECONNRESET' ||
+                           error.code === 'ENOTFOUND';
+
+        core.error(`❌ Upload failed (Attempt ${attempt}/${maxRetries}): ${error.message}`);
+
+        if (error.code === 'ETIMEDOUT') {
+          core.error('🔌 Connection timed out. The server at 174.138.122.245:443 is not responding.');
+          core.error('💡 Possible causes:');
+          core.error('   - Server is down or unreachable');
+          core.error('   - Firewall blocking GitHub Actions IP addresses');
+          core.error('   - Network connectivity issues');
+        } else if (error.code === 'ECONNABORTED') {
+          core.error('⏱️  The request timed out. The API server may be processing a large SBOM file.');
+        }
+
+        if (error.response) {
+          core.error(`Response Status: ${error.response.status}`);
+          core.error(`Response Data: ${JSON.stringify(error.response.data)}`);
+        } else if (error.request) {
+          core.error('No response received from server. The request was made but no response was received.');
+        }
+
+        // If this is the last attempt or error is not retryable, break
+        if (attempt >= maxRetries || !isRetryable) {
+          core.error('❌ All retry attempts exhausted or non-retryable error occurred.');
+          break;
+        }
+
+        core.info(`🔄 Will retry in ${(retryDelay * (attempt + 1)) / 1000}s...`);
       }
+    }
 
-      // ✅ 3. Prepare multipart form-data
-      const formData = new index_FormData();
-      formData.append('combinedScanRequest', JSON.stringify(combinedScanRequest), {
-        contentType: 'application/json'
-      });
-      formData.append('sbomFile', fs.createReadStream(sbomPath));
-      formData.append('displayName', process.env.DISPLAY_NAME || 'sbom');
-      formData.append('branchName', process.env.BRANCH_NAME || 'main');
-      if (process.env.CICD_SOURCE) formData.append('cicdSource', process.env.CICD_SOURCE);
-      if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
-
-      // ✅ 4. Headers (if authentication is used)
-      const headers = {
-        ...formData.getHeaders(),
-        'x-api-key': process.env.X_API_KEY || '',
-        'x-secret-key': process.env.X_SECRET_KEY || '',
-        'x-tenant-key': process.env.X_TENANT_KEY || ''
-      };
-
-      // ✅ 5. Print request details
-      core.info('📋 Request Details:');
-      core.info(`URL: ${apiUrl}`);
-      core.info(`Headers: ${JSON.stringify(headers, null, 2)}`);
-      core.info(`FormData fields: ${JSON.stringify({
-        combinedScanRequest: 'JSON string (see below)',
-        sbomFile: sbomPath,
-        displayName: process.env.DISPLAY_NAME || 'sbom',
-        branchName: process.env.BRANCH_NAME || 'main',
-        cicdSource: process.env.CICD_SOURCE || 'not set',
-        jobId: process.env.JOB_ID || 'not set'
-      }, null, 2)}`);
-      core.info(`\n📦 CombinedScanRequest Structure:`);
-      core.info(`  - configScanResponseDto:`);
-      core.info(`      ArtifactName: ${combinedScanRequest.configScanResponseDto.ArtifactName}`);
-      core.info(`      ArtifactType: ${combinedScanRequest.configScanResponseDto.ArtifactType}`);
-      core.info(`      Results count: ${combinedScanRequest.configScanResponseDto.Results?.length || 0}`);
-      core.info(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
-      core.info(`\n📋 Full CombinedScanRequest JSON:`);
-      core.info(JSON.stringify(combinedScanRequest, null, 2));
-
-      // ✅ 6. Send POST request with extended timeout
-      core.info('⏳ Sending request to API (this may take a few minutes)...');
-      const response = await index_axios.post(apiUrl, formData, {
-        headers,
-        maxBodyLength: Infinity,
-        timeout: 300000  // Increased to 5 minutes (300 seconds)
-      });
-      core.info(`✅ Upload successful: ${response.status} ${response.statusText}`);
-      core.info(`Response Data: ${JSON.stringify(response.data)}`);
-    } catch (error) {
-      core.error(`❌ Upload failed: ${error.message}`);
-
-      if (error.code === 'ECONNABORTED') {
-        core.error('⏱️  The request timed out. The API server may be processing a large SBOM file.');
-        core.error('💡 Suggestion: Check your API server logs to see if the request is still processing.');
-      }
-
-      if (error.response) {
-        core.error(`Response Status: ${error.response.status}`);
-        core.error(`Response Data: ${JSON.stringify(error.response.data)}`);
-      } else if (error.request) {
-        core.error('No response received from server. The request was made but no response was received.');
-      }
-
-      // Don't throw the error, just log it to prevent workflow failure
-      core.warning('Upload failed but continuing workflow...');
+    // If we get here, all retries failed
+    core.warning('⚠️ Upload failed but continuing workflow...');
+    if (lastError) {
+      core.error(`Final error: ${lastError.message}`);
     }
   }
 
