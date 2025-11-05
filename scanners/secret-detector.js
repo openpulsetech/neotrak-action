@@ -315,16 +315,6 @@ tags = ["mailjet", "apikey"]
 
       const endTime = Date.now();
 
-      // Log raw results before filtering
-      core.info(`📋 Raw secrets found (before filtering): ${Array.isArray(result) ? result.length : 0}`);
-      if (Array.isArray(result)) {
-        result.forEach((item, index) => {
-          core.info(`  ${index + 1}. File: ${item.File}`);
-          core.info(`     Match: ${item.Match}`);
-          core.info(`     Description: ${item.Description}`);
-        });
-      }
-
       const filtered = Array.isArray(result)
         ? result.filter(item => {
             const shouldSkip = skipFiles.includes(path.basename(item.File));
