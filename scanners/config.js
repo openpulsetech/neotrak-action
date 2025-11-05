@@ -97,7 +97,12 @@ class ConfigScanner {
                     high: 0,
                     medium: 0,
                     low: 0,
-                    misconfigurations: []
+                    misconfigurations: [],
+                    configScanResponseDto: {
+                        ArtifactName: '',
+                        ArtifactType: '',
+                        Results: []
+                    }
                 };
             }
 
@@ -110,17 +115,22 @@ class ConfigScanner {
             let low = 0;
             let total = 0;
 
+            // Build the API-compatible structure
+            const configResultDtos = [];
+
             if (Array.isArray(data.Results)) {
                 data.Results.forEach(result => {
                     if (result.Target) {
                         files.push(result.Target);
                     }
 
-             // Count misconfigurations by severity
+                    // Map Trivy result to ConfigResultDto
+                    const trivyMisconfigurations = [];
+
                     if (Array.isArray(result.Misconfigurations)) {
                         result.Misconfigurations.forEach(misconfiguration => {
                             const severity = misconfiguration.Severity?.toUpperCase();
-                            
+
                             switch(severity) {
                                 case 'CRITICAL':
                                     critical++;
@@ -137,25 +147,53 @@ class ConfigScanner {
                             }
                             total++;
 
+                            // For display purposes (legacy)
                             misconfigurations.push({
-                            File: result.Target || 'Unknown',
-                            Issue: misconfiguration.Title || misconfiguration.ID || 'N/A',
-                            Severity: severity || 'UNKNOWN',
-                            Line: misconfiguration.CauseMetadata?.StartLine || 'N/A'
+                                File: result.Target || 'Unknown',
+                                Issue: misconfiguration.Title || misconfiguration.ID || 'N/A',
+                                Severity: severity || 'UNKNOWN',
+                                Line: misconfiguration.CauseMetadata?.StartLine || 'N/A'
+                            });
+
+                            // For API (ConfigMisconfigurationDto)
+                            trivyMisconfigurations.push({
+                                ID: misconfiguration.ID || '',
+                                Title: misconfiguration.Title || '',
+                                Description: misconfiguration.Description || '',
+                                Severity: severity || 'UNKNOWN',
+                                PrimaryURL: misconfiguration.PrimaryURL || '',
+                                Query: misconfiguration.Query || ''
+                            });
                         });
+                    }
+
+                    // Add ConfigResultDto
+                    if (result.Target) {
+                        configResultDtos.push({
+                            Target: result.Target || '',
+                            Class: result.Class || '',
+                            Type: result.Type || '',
+                            Misconfigurations: trivyMisconfigurations
                         });
                     }
                 });
             }
 
             const fileCount = files.length;
-               // Log detected files
+            // Log detected files
             if (fileCount > 0) {
                 core.info(`📁 Detected config files: ${fileCount}`);
                 files.forEach((file, index) => {
                     core.info(`   ${index + 1}. ${file}`);
                 });
             }
+
+            // Build ConfigScanResponseDto
+            const configScanResponseDto = {
+                ArtifactName: data.ArtifactName || '',
+                ArtifactType: data.ArtifactType || '',
+                Results: configResultDtos
+            };
 
             return {
                 total: fileCount,
@@ -165,7 +203,8 @@ class ConfigScanner {
                 high,
                 medium,
                 low,
-                misconfigurations
+                misconfigurations,
+                configScanResponseDto  // ✅ Add the API-compatible structure
             };
 
         } catch (err) {
@@ -178,7 +217,12 @@ class ConfigScanner {
                 high: 0,
                 medium: 0,
                 low: 0,
-                misconfigurations: []
+                misconfigurations: [],
+                configScanResponseDto: {
+                    ArtifactName: '',
+                    ArtifactType: '',
+                    Results: []
+                }
             };
         }
     }

@@ -339,13 +339,15 @@ tags = ["mailjet", "apikey"]
 
       const filteredSecrets = Array.isArray(filtered)
         ? filtered.map(item => ({
-            Description: item.Description,
+            RuleID: item.RuleID || '',
+            Description: item.Description || '',
             File: `//////${item.File}`, // Add ////// prefix to match desired format
-            Match: item.Match,
-            StartLine: String(item.StartLine),
-            EndLine: String(item.EndLine),
-            StartColumn: String(item.StartColumn),
-            EndColumn: String(item.EndColumn),
+            Match: item.Match || '',
+            Secret: item.Secret || '',
+            StartLine: String(item.StartLine || ''),
+            EndLine: String(item.EndLine || ''),
+            StartColumn: String(item.StartColumn || ''),
+            EndColumn: String(item.EndColumn || ''),
           }))
         : [];
 

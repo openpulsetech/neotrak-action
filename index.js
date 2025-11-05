@@ -135,9 +135,19 @@ class NTUSecurityOrchestrator {
       const apiUrl = `https://dev.neoTrak.io/open-pulse/project/upload-all/${projectId}`;
       core.info(`📤 Preparing upload to: ${apiUrl}`);
 
-      // ✅ 1. Build CombinedScanRequest JSON structure
+      // Debug: Log raw inputs
+      core.info(`🔍 Debug - configResult keys: ${Object.keys(configResult || {}).join(', ')}`);
+      core.info(`🔍 Debug - secretResult keys: ${Object.keys(secretResult || {}).join(', ')}`);
+      core.info(`🔍 Debug - configResult.configScanResponseDto exists: ${!!configResult?.configScanResponseDto}`);
+      core.info(`🔍 Debug - secretResult.secrets length: ${secretResult?.secrets?.length || 0}`);
+
+      // ✅ 1. Build CombinedScanRequest JSON structure matching API DTOs
       const combinedScanRequest = {
-        configScanResponseDto: configResult || {},
+        configScanResponseDto: configResult?.configScanResponseDto || {
+          ArtifactName: '',
+          ArtifactType: '',
+          Results: []
+        },
         scannerSecretResponse: (secretResult?.secrets || []).map(item => ({
           RuleID: item.RuleID || '',
           Description: item.Description || '',
@@ -189,7 +199,14 @@ class NTUSecurityOrchestrator {
         cicdSource: process.env.CICD_SOURCE || 'not set',
         jobId: process.env.JOB_ID || 'not set'
       }, null, 2)}`);
-      core.info(`CombinedScanRequest JSON: ${JSON.stringify(combinedScanRequest, null, 2)}`);
+      core.info(`\n📦 CombinedScanRequest Structure:`);
+      core.info(`  - configScanResponseDto:`);
+      core.info(`      ArtifactName: ${combinedScanRequest.configScanResponseDto.ArtifactName}`);
+      core.info(`      ArtifactType: ${combinedScanRequest.configScanResponseDto.ArtifactType}`);
+      core.info(`      Results count: ${combinedScanRequest.configScanResponseDto.Results?.length || 0}`);
+      core.info(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
+      core.info(`\n📋 Full CombinedScanRequest JSON:`);
+      core.info(JSON.stringify(combinedScanRequest, null, 2));
 
       // ✅ 6. Send POST request
       const response = await axios.post(apiUrl, formData, {

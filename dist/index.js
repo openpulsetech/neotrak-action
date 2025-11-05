@@ -15272,7 +15272,12 @@ class ConfigScanner {
                     high: 0,
                     medium: 0,
                     low: 0,
-                    misconfigurations: []
+                    misconfigurations: [],
+                    configScanResponseDto: {
+                        ArtifactName: '',
+                        ArtifactType: '',
+                        Results: []
+                    }
                 };
             }
 
@@ -15285,17 +15290,22 @@ class ConfigScanner {
             let low = 0;
             let total = 0;
 
+            // Build the API-compatible structure
+            const configResultDtos = [];
+
             if (Array.isArray(data.Results)) {
                 data.Results.forEach(result => {
                     if (result.Target) {
                         files.push(result.Target);
                     }
 
-             // Count misconfigurations by severity
+                    // Map Trivy result to ConfigResultDto
+                    const trivyMisconfigurations = [];
+
                     if (Array.isArray(result.Misconfigurations)) {
                         result.Misconfigurations.forEach(misconfiguration => {
                             const severity = misconfiguration.Severity?.toUpperCase();
-                            
+
                             switch(severity) {
                                 case 'CRITICAL':
                                     critical++;
@@ -15312,25 +15322,53 @@ class ConfigScanner {
                             }
                             total++;
 
+                            // For display purposes (legacy)
                             misconfigurations.push({
-                            File: result.Target || 'Unknown',
-                            Issue: misconfiguration.Title || misconfiguration.ID || 'N/A',
-                            Severity: severity || 'UNKNOWN',
-                            Line: misconfiguration.CauseMetadata?.StartLine || 'N/A'
+                                File: result.Target || 'Unknown',
+                                Issue: misconfiguration.Title || misconfiguration.ID || 'N/A',
+                                Severity: severity || 'UNKNOWN',
+                                Line: misconfiguration.CauseMetadata?.StartLine || 'N/A'
+                            });
+
+                            // For API (ConfigMisconfigurationDto)
+                            trivyMisconfigurations.push({
+                                ID: misconfiguration.ID || '',
+                                Title: misconfiguration.Title || '',
+                                Description: misconfiguration.Description || '',
+                                Severity: severity || 'UNKNOWN',
+                                PrimaryURL: misconfiguration.PrimaryURL || '',
+                                Query: misconfiguration.Query || ''
+                            });
                         });
+                    }
+
+                    // Add ConfigResultDto
+                    if (result.Target) {
+                        configResultDtos.push({
+                            Target: result.Target || '',
+                            Class: result.Class || '',
+                            Type: result.Type || '',
+                            Misconfigurations: trivyMisconfigurations
                         });
                     }
                 });
             }
 
             const fileCount = files.length;
-               // Log detected files
+            // Log detected files
             if (fileCount > 0) {
                 core.info(`📁 Detected config files: ${fileCount}`);
                 files.forEach((file, index) => {
                     core.info(`   ${index + 1}. ${file}`);
                 });
             }
+
+            // Build ConfigScanResponseDto
+            const configScanResponseDto = {
+                ArtifactName: data.ArtifactName || '',
+                ArtifactType: data.ArtifactType || '',
+                Results: configResultDtos
+            };
 
             return {
                 total: fileCount,
@@ -15340,7 +15378,8 @@ class ConfigScanner {
                 high,
                 medium,
                 low,
-                misconfigurations
+                misconfigurations,
+                configScanResponseDto  // ✅ Add the API-compatible structure
             };
 
         } catch (err) {
@@ -15353,7 +15392,12 @@ class ConfigScanner {
                 high: 0,
                 medium: 0,
                 low: 0,
-                misconfigurations: []
+                misconfigurations: [],
+                configScanResponseDto: {
+                    ArtifactName: '',
+                    ArtifactType: '',
+                    Results: []
+                }
             };
         }
     }
@@ -32247,13 +32291,15 @@ tags = ["mailjet", "apikey"]
 
       const filteredSecrets = Array.isArray(filtered)
         ? filtered.map(item => ({
-            Description: item.Description,
+            RuleID: item.RuleID || '',
+            Description: item.Description || '',
             File: `//////${item.File}`, // Add ////// prefix to match desired format
-            Match: item.Match,
-            StartLine: String(item.StartLine),
-            EndLine: String(item.EndLine),
-            StartColumn: String(item.StartColumn),
-            EndColumn: String(item.EndColumn),
+            Match: item.Match || '',
+            Secret: item.Secret || '',
+            StartLine: String(item.StartLine || ''),
+            EndLine: String(item.EndLine || ''),
+            StartColumn: String(item.StartColumn || ''),
+            EndColumn: String(item.EndColumn || ''),
           }))
         : [];
 
@@ -45448,9 +45494,19 @@ class NTUSecurityOrchestrator {
       const apiUrl = `https://dev.neoTrak.io/open-pulse/project/upload-all/${projectId}`;
       core.info(`📤 Preparing upload to: ${apiUrl}`);
 
-      // ✅ 1. Build CombinedScanRequest JSON structure
+      // Debug: Log raw inputs
+      core.info(`🔍 Debug - configResult keys: ${Object.keys(configResult || {}).join(', ')}`);
+      core.info(`🔍 Debug - secretResult keys: ${Object.keys(secretResult || {}).join(', ')}`);
+      core.info(`🔍 Debug - configResult.configScanResponseDto exists: ${!!configResult?.configScanResponseDto}`);
+      core.info(`🔍 Debug - secretResult.secrets length: ${secretResult?.secrets?.length || 0}`);
+
+      // ✅ 1. Build CombinedScanRequest JSON structure matching API DTOs
       const combinedScanRequest = {
-        configScanResponseDto: configResult || {},
+        configScanResponseDto: configResult?.configScanResponseDto || {
+          ArtifactName: '',
+          ArtifactType: '',
+          Results: []
+        },
         scannerSecretResponse: (secretResult?.secrets || []).map(item => ({
           RuleID: item.RuleID || '',
           Description: item.Description || '',
@@ -45502,7 +45558,14 @@ class NTUSecurityOrchestrator {
         cicdSource: process.env.CICD_SOURCE || 'not set',
         jobId: process.env.JOB_ID || 'not set'
       }, null, 2)}`);
-      core.info(`CombinedScanRequest JSON: ${JSON.stringify(combinedScanRequest, null, 2)}`);
+      core.info(`\n📦 CombinedScanRequest Structure:`);
+      core.info(`  - configScanResponseDto:`);
+      core.info(`      ArtifactName: ${combinedScanRequest.configScanResponseDto.ArtifactName}`);
+      core.info(`      ArtifactType: ${combinedScanRequest.configScanResponseDto.ArtifactType}`);
+      core.info(`      Results count: ${combinedScanRequest.configScanResponseDto.Results?.length || 0}`);
+      core.info(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
+      core.info(`\n📋 Full CombinedScanRequest JSON:`);
+      core.info(JSON.stringify(combinedScanRequest, null, 2));
 
       // ✅ 6. Send POST request
       const response = await index_axios.post(apiUrl, formData, {
