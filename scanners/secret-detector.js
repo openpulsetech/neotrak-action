@@ -108,7 +108,7 @@ tags = ["key", "secret", "generic", "password"]
 [[rules]]
 id = "strict-secret-detection-unquoted"
 description = "Detect likely passwords or secrets without quotes in YAML"
-regex = '''(?i)(password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*([A-Za-z0-9@#\\-_$%!+/=]{6,})\\s*$'''
+regex = '''(?i)(password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*([A-Za-z0-9@#\\-_$%!+/=]{6,})'''
 tags = ["key", "secret", "generic", "password", "yaml"]
 
 [[rules]]
@@ -120,7 +120,7 @@ tags = ["aws", "key", "secret"]
 [[rules]]
 id = "aws-secret-unquoted"
 description = "AWS Secret Access Key (unquoted)"
-regex = '''(?i)(aws[-_]?secret[-_]?access[-_]?key|secret[-_]?key|access[-_]?secret)\\s*[=:]\\s*([0-9a-zA-Z/+]{40})\\s*$'''
+regex = '''(?i)(aws[-_]?secret[-_]?access[-_]?key|secret[-_]?key|access[-_]?secret)\\s*[=:]\\s*([0-9a-zA-Z/+]{40})'''
 tags = ["aws", "key", "secret"]
 
 [[rules]]
@@ -128,6 +128,12 @@ id = "aws-key"
 description = "AWS Access Key ID"
 regex = '''AKIA[0-9A-Z]{16}'''
 tags = ["aws", "key"]
+
+[[rules]]
+id = "digitalocean-spaces-key"
+description = "DigitalOcean Spaces Access Key"
+regex = '''(?i)(access[-_]?key|access[-_]?secret)\\s*:\\s*([A-Z0-9]{20,})'''
+tags = ["digitalocean", "spaces", "key"]
 
 [[rules]]
 id = "github-token"
@@ -150,14 +156,26 @@ tags = ["firebase", "apikey"]
 [[rules]]
 id = "generic-api-key-unquoted"
 description = "Generic API keys in YAML (unquoted)"
-regex = '''(?i)(api[-_]?key|apikey|access[-_]?key)\\s*:\\s*([A-Za-z0-9_\\-]{20,})\\s*$'''
+regex = '''(?i)(api[-_]?key|apikey)\\s*:\\s*([A-Za-z0-9_\\-]{15,})'''
 tags = ["apikey", "yaml"]
 
 [[rules]]
 id = "hex-secret-key"
 description = "Hexadecimal secret keys (64+ chars)"
-regex = '''(?i)(secret[-_]?key|secretkey)\\s*[=:]\\s*["']?([a-f0-9]{64,})["']?\\s*$'''
+regex = '''(?i)(secret[-_]?key|secretkey)\\s*[=:]\\s*["']?([a-f0-9]{64,})["']?'''
 tags = ["secret", "hex"]
+
+[[rules]]
+id = "groq-api-key"
+description = "Groq API Key"
+regex = '''gsk_[A-Za-z0-9]{20,}'''
+tags = ["groq", "apikey"]
+
+[[rules]]
+id = "mailjet-keys"
+description = "Mailjet API keys"
+regex = '''(?i)(mailjet[-_]?(api|secret)[-_]?key)\\s*:\\s*["']?([A-Za-z0-9]{10,})["']?'''
+tags = ["mailjet", "apikey"]
 `;
   }
 
@@ -168,8 +186,8 @@ tags = ["secret", "hex"]
   }
 
   async runGitleaks(scanDir, reportPath, rulesPath) {
-    const args = ['detect', '--source', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner'];
-    core.debug(`🔍 Running Gitleaks: ${this.binaryPath} ${args.join(' ')}`);
+    const args = ['detect', '--source', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner', '--verbose'];
+    core.info(`🔍 Running Gitleaks: ${this.binaryPath} ${args.join(' ')}`);
 
     let stdoutOutput = '';
     let stderrOutput = '';
@@ -183,11 +201,11 @@ tags = ["secret", "hex"]
     };
 
     const exitCode = await exec.exec(this.binaryPath, args, options);
-    core.debug(`Gitleaks STDOUT: ${stdoutOutput}`);
+    core.info(`Gitleaks STDOUT: ${stdoutOutput}`);
     if (stderrOutput && stderrOutput.trim()) {
-      core.warning(`Gitleaks STDERR: ${stderrOutput}`);
+      core.info(`Gitleaks STDERR: ${stderrOutput}`);
     }
-    
+
     return exitCode;
   }
 
@@ -297,13 +315,37 @@ tags = ["secret", "hex"]
 
       const endTime = Date.now();
 
+      // Log raw results before filtering
+      core.info(`📋 Raw secrets found (before filtering): ${Array.isArray(result) ? result.length : 0}`);
+      if (Array.isArray(result)) {
+        result.forEach((item, index) => {
+          core.info(`  ${index + 1}. File: ${item.File}`);
+          core.info(`     Match: ${item.Match}`);
+          core.info(`     Description: ${item.Description}`);
+        });
+      }
+
       const filtered = Array.isArray(result)
-        ? result.filter(item =>
-          !skipFiles.includes(path.basename(item.File)) &&
-          !item.File.includes('node_modules') &&
-          !/["']?\$\{?[A-Z0-9_]+\}?["']?/.test(item.Match)
-        )
+        ? result.filter(item => {
+            const shouldSkip = skipFiles.includes(path.basename(item.File));
+            const hasNodeModules = item.File.includes('node_modules');
+            const isEnvVar = /["']?\$\{?[A-Z0-9_]+\}?["']?/.test(item.Match);
+
+            if (shouldSkip) {
+              core.info(`⏭️  Skipping ${item.File} - in skipFiles list`);
+            }
+            if (hasNodeModules) {
+              core.info(`⏭️  Skipping ${item.File} - node_modules`);
+            }
+            if (isEnvVar) {
+              core.info(`⏭️  Skipping ${item.File} - env variable pattern: ${item.Match}`);
+            }
+
+            return !shouldSkip && !hasNodeModules && !isEnvVar;
+          })
         : result;
+
+      core.info(`✅ Secrets after filtering: ${Array.isArray(filtered) ? filtered.length : 0}`);
 
       const filteredSecrets = Array.isArray(filtered)
         ? filtered.map(item => ({
