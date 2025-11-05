@@ -177,7 +177,21 @@ class NTUSecurityOrchestrator {
         'x-tenant-key': process.env.X_TENANT_KEY || ''
       };
 
-      // ✅ 5. Send POST request
+      // ✅ 5. Print request details
+      core.info('📋 Request Details:');
+      core.info(`URL: ${apiUrl}`);
+      core.info(`Headers: ${JSON.stringify(headers, null, 2)}`);
+      core.info(`FormData fields: ${JSON.stringify({
+        combinedScanRequest: 'JSON string (see below)',
+        sbomFile: sbomPath,
+        displayName: process.env.DISPLAY_NAME || 'sbom',
+        branchName: process.env.BRANCH_NAME || 'main',
+        cicdSource: process.env.CICD_SOURCE || 'not set',
+        jobId: process.env.JOB_ID || 'not set'
+      }, null, 2)}`);
+      core.info(`CombinedScanRequest JSON: ${JSON.stringify(combinedScanRequest, null, 2)}`);
+
+      // ✅ 6. Send POST request
       const response = await axios.post(apiUrl, formData, {
         headers,
         maxBodyLength: Infinity,
