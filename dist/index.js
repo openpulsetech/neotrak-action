@@ -32004,18 +32004,31 @@ class SecretDetectorScanner {
   }
 
   // ✅ Stronger regex: avoids matching dummy values like "hello", "test123"
+  // ✅ Now supports both quoted and unquoted values in YAML files
   createCustomRules() {
     return `
 [[rules]]
-id = "strict-secret-detection"
-description = "Detect likely passwords or secrets with high entropy"
-regex = '''(?i)(password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["']([A-Za-z0-9@#\\-_$%!]{10,})["']'''
+id = "strict-secret-detection-quoted"
+description = "Detect likely passwords or secrets with quotes (high entropy)"
+regex = '''(?i)(password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["']([A-Za-z0-9@#\\-_$%!+/=]{6,})["']'''
 tags = ["key", "secret", "generic", "password"]
 
 [[rules]]
-id = "aws-secret"
-description = "AWS Secret Access Key"
+id = "strict-secret-detection-unquoted"
+description = "Detect likely passwords or secrets without quotes in YAML"
+regex = '''(?i)(password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*([A-Za-z0-9@#\\-_$%!+/=]{6,})\\s*$'''
+tags = ["key", "secret", "generic", "password", "yaml"]
+
+[[rules]]
+id = "aws-secret-quoted"
+description = "AWS Secret Access Key (quoted)"
 regex = '''(?i)aws(.{0,20})?(secret|access)?(.{0,20})?['"][0-9a-zA-Z/+]{40}['"]'''
+tags = ["aws", "key", "secret"]
+
+[[rules]]
+id = "aws-secret-unquoted"
+description = "AWS Secret Access Key (unquoted)"
+regex = '''(?i)(aws[-_]?secret[-_]?access[-_]?key|secret[-_]?key|access[-_]?secret)\\s*[=:]\\s*([0-9a-zA-Z/+]{40})\\s*$'''
 tags = ["aws", "key", "secret"]
 
 [[rules]]
@@ -32041,6 +32054,18 @@ id = "firebase-api-key"
 description = "Firebase API Key"
 regex = '''AIza[0-9A-Za-z\\-_]{35}'''
 tags = ["firebase", "apikey"]
+
+[[rules]]
+id = "generic-api-key-unquoted"
+description = "Generic API keys in YAML (unquoted)"
+regex = '''(?i)(api[-_]?key|apikey|access[-_]?key)\\s*:\\s*([A-Za-z0-9_\\-]{20,})\\s*$'''
+tags = ["apikey", "yaml"]
+
+[[rules]]
+id = "hex-secret-key"
+description = "Hexadecimal secret keys (64+ chars)"
+regex = '''(?i)(secret[-_]?key|secretkey)\\s*[=:]\\s*["']?([a-f0-9]{64,})["']?\\s*$'''
+tags = ["secret", "hex"]
 `;
   }
 
