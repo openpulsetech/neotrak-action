@@ -72,7 +72,7 @@ class NTUSecurityOrchestrator {
 
     const scanType = core.getInput('scan-type') || 'fs';
     const scanTarget = core.getInput('scan-target') || '.';
-    const severity = core.getInput('severity') || 'HIGH,CRITICAL';
+    const severity = core.getInput('severity') || 'CRITICAL,HIGH,MEDIUM,LOW';  // Include all severities
     const ignoreUnfixed = core.getInput('ignore-unfixed') === 'true';
 
 
