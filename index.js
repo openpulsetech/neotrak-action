@@ -133,14 +133,7 @@ class NTUSecurityOrchestrator {
   async uploadCombinedResults(projectId, configResult, secretResult) {
     try {
       const apiUrl = `https://dev.neoTrak.io/open-pulse/project/upload-all/${projectId}`;
-      core.info(`📤 Preparing upload to: ${apiUrl}`);
-
-      // Debug: Log raw inputs
-      core.info(`🔍 Debug - configResult keys: ${Object.keys(configResult || {}).join(', ')}`);
-      core.info(`🔍 Debug - secretResult keys: ${Object.keys(secretResult || {}).join(', ')}`);
-      core.info(`🔍 Debug - configResult.configScanResponseDto exists: ${!!configResult?.configScanResponseDto}`);
-      core.info(`🔍 Debug - secretResult.secrets length: ${secretResult?.secrets?.length || 0}`);
-
+     
       // ✅ 1. Build CombinedScanRequest JSON structure matching API DTOs
       const combinedScanRequest = {
         configScanResponseDto: configResult?.configScanResponseDto || {
@@ -590,11 +583,9 @@ async function run() {
     const projectId = process.env.PROJECT_ID;
     if (projectId) {
       const configResult = orchestrator.getConfigResult();
-      console.log('Uploading combined results to backend...');
-      console.log(`Project ID: ${projectId}`);
-      console.log('Config Result:', configResult);
+  
       const secretResult = orchestrator.getSecretResult();
-      console.log('Secret Result:', secretResult);
+
       await orchestrator.uploadCombinedResults(projectId, configResult, secretResult);
     } else {
       core.warning('⚠️ PROJECT_ID not set — skipping upload to /upload-all');
