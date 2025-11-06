@@ -15175,6 +15175,7 @@ module.exports = connect
 
 const core = __webpack_require__(6977);
 const exec = __webpack_require__(6665);
+const { execSync } = __webpack_require__(5317);
 const fs = __webpack_require__(9896);
 const os = __webpack_require__(857);
 const path = __webpack_require__(6928);
@@ -15216,45 +15217,45 @@ class ConfigScanner {
 
             const reportPath = path.join(os.tmpdir(), `trivy-config-scan-${Date.now()}.json`);
 
-            // Build args array
-            const args = ['config', '--format', 'json', '--output', reportPath];
-            // if (ignoreUnfixed) args.push('--ignore-unfixed');
-             // Add severity filter if specified
+            // Build command string
+            let command = `${this.binaryPath} config --format json --output ${reportPath}`;
+
+            // Add severity filter if specified
             if (severityUpper && severityUpper !== 'ALL') {
-                args.push('--severity', severityUpper);
+                command += ` --severity ${severityUpper}`;
             }
-            args.push(targetPath);
+            command += ` ${targetPath}`;
 
-            core.info(`📝 Running: ${this.binaryPath} ${args.join(' ')}`);
+            core.info(`📝 Running: ${command}`);
 
-            let stdoutOutput = '';
-            let stderrOutput = '';
-
-            // Use workspace directory as working directory, not the target's parent
+            // Use workspace directory as working directory
             const workingDir = workspaceDir || process.cwd();
-
-            const options = {
-                listeners: {
-                    stdout: (data) => { stdoutOutput += data.toString(); },
-                    stderr: (data) => { stderrOutput += data.toString(); },
-                },
-                ignoreReturnCode: true,
-                cwd: workingDir,  // ✅ Use workspace directory, not target's parent
-            };
-
             core.info(`📂 Working directory: ${workingDir}`);
 
-            const exitCode = await exec.exec(this.binaryPath, args, options);
+            try {
+                const output = execSync(command, {
+                    cwd: workingDir,
+                    encoding: 'utf8',
+                    stdio: ['pipe', 'pipe', 'pipe']
+                });
 
-            core.info(`✅ Scan completed with exit code: ${exitCode}`);
-            if (stderrOutput && exitCode !== 0) {
-                core.warning(`Stderr output: ${stderrOutput}`);
+                core.info(`✅ Scan completed successfully`);
+                if (output) {
+                    core.debug(`Output: ${output}`);
+                }
+            } catch (error) {
+                // execSync throws on non-zero exit code, but that's okay for Trivy
+                if (error.stdout) {
+                    core.debug(`Stdout: ${error.stdout}`);
+                }
+                if (error.stderr) {
+                    core.warning(`Stderr: ${error.stderr}`);
+                }
+                core.info(`✅ Scan completed with exit code: ${error.status || 0}`);
             }
 
             if (!fs.existsSync(reportPath)) {
                 core.error(`❌ Output file was not created: ${reportPath}`);
-                core.error(`Stdout: ${stdoutOutput}`);
-                core.error(`Stderr: ${stderrOutput}`);
                 throw new Error('Trivy did not produce output file');
             }
 
