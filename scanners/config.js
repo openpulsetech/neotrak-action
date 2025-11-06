@@ -24,14 +24,19 @@ class ConfigScanner {
 
     async scan(config) {
         try {
-            const { scanTarget, severity } = config;
+            const { scanTarget, severity, workspaceDir } = config;
 
-            if (!fs.existsSync(scanTarget)) {
-                throw new Error(`Scan target does not exist: ${scanTarget}`);
+            // Use workspace directory as the base for scanning
+            const targetPath = path.isAbsolute(scanTarget)
+                ? scanTarget
+                : path.resolve(workspaceDir || process.cwd(), scanTarget);
+
+            if (!fs.existsSync(targetPath)) {
+                throw new Error(`Scan target does not exist: ${targetPath}`);
             }
 
             const severityUpper = severity.toUpperCase();
-            core.info(`🔍 Scanning: ${scanTarget}`);
+            core.info(`🔍 Scanning: ${targetPath}`);
             core.info(`⚠️  Severity: ${severityUpper}`);
 
             const reportPath = path.join(os.tmpdir(), `trivy-config-scan-${Date.now()}.json`);
@@ -43,12 +48,15 @@ class ConfigScanner {
             if (severityUpper && severityUpper !== 'ALL') {
                 args.push('--severity', severityUpper);
             }
-            args.push(scanTarget);
+            args.push(targetPath);
 
             core.info(`📝 Running: ${this.binaryPath} ${args.join(' ')}`);
 
             let stdoutOutput = '';
             let stderrOutput = '';
+
+            // Use workspace directory as working directory, not the target's parent
+            const workingDir = workspaceDir || process.cwd();
 
             const options = {
                 listeners: {
@@ -56,8 +64,10 @@ class ConfigScanner {
                     stderr: (data) => { stderrOutput += data.toString(); },
                 },
                 ignoreReturnCode: true,
-                cwd: path.dirname(scanTarget),
+                cwd: workingDir,  // ✅ Use workspace directory, not target's parent
             };
+
+            core.info(`📂 Working directory: ${workingDir}`);
 
             const exitCode = await exec.exec(this.binaryPath, args, options);
 
@@ -196,7 +206,7 @@ class ConfigScanner {
             };
 
             return {
-                total: fileCount,
+                total: total,  // ✅ Return the actual count of misconfigurations, not file count
                 totalFiles: fileCount,
                 files,
                 critical,
