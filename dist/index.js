@@ -31993,19 +31993,18 @@ class SecretDetectorScanner {
 
   // ✅ Stronger regex: avoids matching dummy values like "hello", "test123"
   // ✅ Now supports both quoted and unquoted values in YAML files
-  // ✅ Excludes common false positives like header names, constant identifiers
   createCustomRules() {
     return `
 [[rules]]
 id = "strict-secret-detection-quoted"
 description = "Detect likely passwords or secrets with quotes (high entropy)"
-regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["'](?!.*(?:header|name|type|key|field|param|constant|bearer|basic|x-api-key|x-secret-key|authorization|content-type))([A-Za-z0-9@#\\-_$%!+/=]{12,})["']'''
+regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["']([A-Za-z0-9@#\\-_$%!+/=]{6,})["']'''
 tags = ["key", "secret", "generic", "password"]
 
 [[rules]]
 id = "strict-secret-detection-unquoted"
 description = "Detect likely passwords or secrets without quotes in YAML"
-regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*(?!.*(?:header|name|type|key|field|param|constant|bearer|basic|x-api-key|x-secret-key|authorization|content-type))([A-Za-z0-9@#\\-_$%!+/=]{12,})'''
+regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*([A-Za-z0-9@#\\-_$%!+/=]{6,})'''
 tags = ["key", "secret", "generic", "password", "yaml"]
 
 [[rules]]
@@ -32219,17 +32218,25 @@ tags = ["mailjet", "apikey"]
             const hasNodeModules = item.File.includes('node_modules');
             const isEnvVar = /["']?\$\{?[A-Z0-9_]+\}?["']?/.test(item.Match);
 
+               // ✅ Exclude common build/config directories
+            const excludedDirs = ['.git/', '.github/', '.settings/', 'target/', 'build/', 'dist/', 'out/'];
+            const isExcludedDir = excludedDirs.some(dir => item.File.includes(dir));
+
             if (shouldSkip) {
               core.info(`⏭️  Skipping ${item.File} - in skipFiles list`);
             }
             if (hasNodeModules) {
               core.info(`⏭️  Skipping ${item.File} - node_modules`);
             }
+       
             if (isEnvVar) {
               core.info(`⏭️  Skipping ${item.File} - env variable pattern: ${item.Match}`);
             }
 
-            return !shouldSkip && !hasNodeModules && !isEnvVar;
+          if (isExcludedDir) {
+            core.info(`⏭️  Skipping ${item.File} - excluded directory`);
+          }
+            return !shouldSkip && !hasNodeModules && !isExcludedDir && !isEnvVar;
           })
         : result;
 
