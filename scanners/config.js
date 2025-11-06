@@ -190,11 +190,14 @@ class ConfigScanner {
             }
 
             const fileCount = files.length;
-            // Log detected files
+            // Log detected files and misconfigurations
+            core.info(`📁 Total config files scanned: ${fileCount}`);
+            core.info(`⚠️  Total misconfigurations found: ${total}`);
             if (fileCount > 0) {
-                core.info(`📁 Detected config files: ${fileCount}`);
                 files.forEach((file, index) => {
-                    core.info(`   ${index + 1}. ${file}`);
+                    const fileResults = data.Results.find(r => r.Target === file);
+                    const fileMisconfigCount = fileResults?.Misconfigurations?.length || 0;
+                    core.info(`   ${index + 1}. ${file} (${fileMisconfigCount} issues)`);
                 });
             }
 

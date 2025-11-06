@@ -15365,11 +15365,14 @@ class ConfigScanner {
             }
 
             const fileCount = files.length;
-            // Log detected files
+            // Log detected files and misconfigurations
+            core.info(`📁 Total config files scanned: ${fileCount}`);
+            core.info(`⚠️  Total misconfigurations found: ${total}`);
             if (fileCount > 0) {
-                core.info(`📁 Detected config files: ${fileCount}`);
                 files.forEach((file, index) => {
-                    core.info(`   ${index + 1}. ${file}`);
+                    const fileResults = data.Results.find(r => r.Target === file);
+                    const fileMisconfigCount = fileResults?.Misconfigurations?.length || 0;
+                    core.info(`   ${index + 1}. ${file} (${fileMisconfigCount} issues)`);
                 });
             }
 
@@ -32230,34 +32233,48 @@ tags = ["mailjet", "apikey"]
 
       core.info(`✅ Secrets after filtering: ${Array.isArray(filtered) ? filtered.length : 0}`);
 
-      const filteredSecrets = Array.isArray(filtered)
-        ? filtered.map(item => ({
-            RuleID: item.RuleID || '',
-            Description: item.Description || '',
-            File: `//////${item.File}`, // Add ////// prefix to match desired format
-            Match: item.Match || '',
-            Secret: item.Secret || '',
-            StartLine: String(item.StartLine || ''),
-            EndLine: String(item.EndLine || ''),
-            StartColumn: String(item.StartColumn || ''),
-            EndColumn: String(item.EndColumn || ''),
-          }))
+      // ✅ Deduplicate secrets based on File + StartLine + Secret
+      const deduplicated = Array.isArray(filtered)
+        ? filtered.reduce((acc, item) => {
+            const key = `${item.File}:${item.StartLine}:${item.Secret}`;
+            if (!acc.seen.has(key)) {
+              acc.seen.add(key);
+              acc.results.push(item);
+            } else {
+              core.info(`⏭️  Skipping duplicate: ${item.File}:${item.StartLine} (${item.RuleID})`);
+            }
+            return acc;
+          }, { seen: new Set(), results: [] }).results
         : [];
+
+      core.info(`✅ Secrets after deduplication: ${deduplicated.length}`);
+
+      const filteredSecrets = deduplicated.map(item => ({
+        RuleID: item.RuleID || '',
+        Description: item.Description || '',
+        File: `//////${item.File}`, // Add ////// prefix to match desired format
+        Match: item.Match || '',
+        Secret: item.Secret || '',
+        StartLine: String(item.StartLine || ''),
+        EndLine: String(item.EndLine || ''),
+        StartColumn: String(item.StartColumn || ''),
+        EndColumn: String(item.EndColumn || ''),
+      }));
 
       const durationMs = endTime - startTime;
       const durationMin = Math.floor(durationMs / 60000);
       const durationSec = Math.floor((durationMs % 60000) / 1000);
       const durationStr = `${durationMin}min ${durationSec}s`;
 
-      core.info(`🔐 Secrets detected: ${Array.isArray(filtered) ? filtered.length : 0}`);
+      core.info(`🔐 Unique secrets detected: ${deduplicated.length}`);
       core.info(`⏰ Scan duration: ${durationStr}`);
 
       // Send secrets to API if found and PROJECT_ID is set
-      if (filtered !== "No secrets detected." && Array.isArray(filtered) && filtered.length > 0) {
+      if (deduplicated.length > 0) {
         const projectId = process.env.PROJECT_ID;
         if (projectId) {
-          core.debug('Raw secrets data:', JSON.stringify(filtered, null, 2));
-          await this.sendSecretsToApi(projectId, filtered);
+          core.debug('Raw secrets data:', JSON.stringify(deduplicated, null, 2));
+          await this.sendSecretsToApi(projectId, deduplicated);
         } else {
           core.warning('PROJECT_ID environment variable not set. Skipping API upload.');
         }
@@ -32274,7 +32291,7 @@ tags = ["mailjet", "apikey"]
       }
 
       // Return results in the format expected by orchestrator
-      const secretCount = Array.isArray(filtered) ? filtered.length : 0;
+      const secretCount = deduplicated.length;
       return {
         total: secretCount,
         critical: 0, // Secrets don't have severity levels like vulnerabilities
@@ -45510,6 +45527,18 @@ class NTUSecurityOrchestrator {
           core.info(`      ArtifactName: ${combinedScanRequest.configScanResponseDto.ArtifactName}`);
           core.info(`      ArtifactType: ${combinedScanRequest.configScanResponseDto.ArtifactType}`);
           core.info(`      Results count: ${combinedScanRequest.configScanResponseDto.Results?.length || 0}`);
+
+          // Count total misconfigurations across all results
+          const totalMisconfigs = combinedScanRequest.configScanResponseDto.Results?.reduce((sum, result) => {
+            return sum + (result.Misconfigurations?.length || 0);
+          }, 0) || 0;
+          core.info(`      Total Misconfigurations: ${totalMisconfigs}`);
+
+          // Log each result file and its misconfiguration count
+          combinedScanRequest.configScanResponseDto.Results?.forEach((result, idx) => {
+            core.info(`      Result ${idx + 1}: ${result.Target} (${result.Misconfigurations?.length || 0} issues)`);
+          });
+
           core.info(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
           core.info(`\n📋 Full CombinedScanRequest JSON:`);
           core.info(JSON.stringify(combinedScanRequest, null, 2));

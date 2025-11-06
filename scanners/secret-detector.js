@@ -337,34 +337,48 @@ tags = ["mailjet", "apikey"]
 
       core.info(`✅ Secrets after filtering: ${Array.isArray(filtered) ? filtered.length : 0}`);
 
-      const filteredSecrets = Array.isArray(filtered)
-        ? filtered.map(item => ({
-            RuleID: item.RuleID || '',
-            Description: item.Description || '',
-            File: `//////${item.File}`, // Add ////// prefix to match desired format
-            Match: item.Match || '',
-            Secret: item.Secret || '',
-            StartLine: String(item.StartLine || ''),
-            EndLine: String(item.EndLine || ''),
-            StartColumn: String(item.StartColumn || ''),
-            EndColumn: String(item.EndColumn || ''),
-          }))
+      // ✅ Deduplicate secrets based on File + StartLine + Secret
+      const deduplicated = Array.isArray(filtered)
+        ? filtered.reduce((acc, item) => {
+            const key = `${item.File}:${item.StartLine}:${item.Secret}`;
+            if (!acc.seen.has(key)) {
+              acc.seen.add(key);
+              acc.results.push(item);
+            } else {
+              core.info(`⏭️  Skipping duplicate: ${item.File}:${item.StartLine} (${item.RuleID})`);
+            }
+            return acc;
+          }, { seen: new Set(), results: [] }).results
         : [];
+
+      core.info(`✅ Secrets after deduplication: ${deduplicated.length}`);
+
+      const filteredSecrets = deduplicated.map(item => ({
+        RuleID: item.RuleID || '',
+        Description: item.Description || '',
+        File: `//////${item.File}`, // Add ////// prefix to match desired format
+        Match: item.Match || '',
+        Secret: item.Secret || '',
+        StartLine: String(item.StartLine || ''),
+        EndLine: String(item.EndLine || ''),
+        StartColumn: String(item.StartColumn || ''),
+        EndColumn: String(item.EndColumn || ''),
+      }));
 
       const durationMs = endTime - startTime;
       const durationMin = Math.floor(durationMs / 60000);
       const durationSec = Math.floor((durationMs % 60000) / 1000);
       const durationStr = `${durationMin}min ${durationSec}s`;
 
-      core.info(`🔐 Secrets detected: ${Array.isArray(filtered) ? filtered.length : 0}`);
+      core.info(`🔐 Unique secrets detected: ${deduplicated.length}`);
       core.info(`⏰ Scan duration: ${durationStr}`);
 
       // Send secrets to API if found and PROJECT_ID is set
-      if (filtered !== "No secrets detected." && Array.isArray(filtered) && filtered.length > 0) {
+      if (deduplicated.length > 0) {
         const projectId = process.env.PROJECT_ID;
         if (projectId) {
-          core.debug('Raw secrets data:', JSON.stringify(filtered, null, 2));
-          await this.sendSecretsToApi(projectId, filtered);
+          core.debug('Raw secrets data:', JSON.stringify(deduplicated, null, 2));
+          await this.sendSecretsToApi(projectId, deduplicated);
         } else {
           core.warning('PROJECT_ID environment variable not set. Skipping API upload.');
         }
@@ -381,7 +395,7 @@ tags = ["mailjet", "apikey"]
       }
 
       // Return results in the format expected by orchestrator
-      const secretCount = Array.isArray(filtered) ? filtered.length : 0;
+      const secretCount = deduplicated.length;
       return {
         total: secretCount,
         critical: 0, // Secrets don't have severity levels like vulnerabilities

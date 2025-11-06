@@ -210,6 +210,18 @@ class NTUSecurityOrchestrator {
           core.info(`      ArtifactName: ${combinedScanRequest.configScanResponseDto.ArtifactName}`);
           core.info(`      ArtifactType: ${combinedScanRequest.configScanResponseDto.ArtifactType}`);
           core.info(`      Results count: ${combinedScanRequest.configScanResponseDto.Results?.length || 0}`);
+
+          // Count total misconfigurations across all results
+          const totalMisconfigs = combinedScanRequest.configScanResponseDto.Results?.reduce((sum, result) => {
+            return sum + (result.Misconfigurations?.length || 0);
+          }, 0) || 0;
+          core.info(`      Total Misconfigurations: ${totalMisconfigs}`);
+
+          // Log each result file and its misconfiguration count
+          combinedScanRequest.configScanResponseDto.Results?.forEach((result, idx) => {
+            core.info(`      Result ${idx + 1}: ${result.Target} (${result.Misconfigurations?.length || 0} issues)`);
+          });
+
           core.info(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
           core.info(`\n📋 Full CombinedScanRequest JSON:`);
           core.info(JSON.stringify(combinedScanRequest, null, 2));
