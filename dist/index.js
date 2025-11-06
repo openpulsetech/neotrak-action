@@ -32082,7 +32082,8 @@ tags = ["mailjet", "apikey"]
   }
 
   async runGitleaks(scanDir, reportPath, rulesPath) {
-    const args = ['detect', '--source', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner', '--verbose'];
+    // const args = ['detect', '--source', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner', '--verbose'];
+    const args = ['dir', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner', '--verbose'];
     core.info(`🔍 Running Gitleaks: ${this.binaryPath} ${args.join(' ')}`);
 
     let stdoutOutput = '';
