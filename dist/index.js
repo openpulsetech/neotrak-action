@@ -15221,9 +15221,9 @@ class ConfigScanner {
             let command = `${this.binaryPath} config --format json --output ${reportPath}`;
 
             // Add severity filter if specified
-            if (severityUpper && severityUpper !== 'ALL') {
-                command += ` --severity ${severityUpper}`;
-            }
+            // if (severityUpper && severityUpper !== 'ALL') {
+            //     command += ` --severity ${severityUpper}`;
+            // }
             command += ` ${targetPath}`;
 
             core.info(`📝 Running: ${command}`);
