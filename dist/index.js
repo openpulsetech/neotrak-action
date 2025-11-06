@@ -31993,19 +31993,18 @@ class SecretDetectorScanner {
 
   // ✅ Stronger regex: avoids matching dummy values like "hello", "test123"
   // ✅ Now supports both quoted and unquoted values in YAML files
-  // ✅ Excludes common false positives like header names, constant identifiers
   createCustomRules() {
     return `
 [[rules]]
 id = "strict-secret-detection-quoted"
 description = "Detect likely passwords or secrets with quotes (high entropy)"
-regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["'](?!x-api-key|x-secret-key|x-tenant-key|authorization|content-type|accept|user-agent|bearer|basic)([A-Za-z0-9@#\\-_$%!+/=]{12,})["']'''
+regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["']([A-Za-z0-9@#\\-_$%!+/=]{6,})["']'''
 tags = ["key", "secret", "generic", "password"]
 
 [[rules]]
 id = "strict-secret-detection-unquoted"
 description = "Detect likely passwords or secrets without quotes in YAML"
-regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*(?!x-api-key|x-secret-key|x-tenant-key|authorization|content-type|accept|user-agent|bearer|basic)([A-Za-z0-9@#\\-_$%!+/=]{12,})'''
+regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*([A-Za-z0-9@#\\-_$%!+/=]{6,})'''
 tags = ["key", "secret", "generic", "password", "yaml"]
 
 [[rules]]
