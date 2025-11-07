@@ -10,10 +10,6 @@ const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 
-// Future scanners can be imported here
-// const grypeScanner = require('./scanners/grype');
-// const snykScanner = require('./scanners/snyk');
-
 class NTUSecurityOrchestrator {
   constructor() {
     this.scanners = [];
@@ -25,7 +21,7 @@ class NTUSecurityOrchestrator {
       low: 0,
       scannerResults: []
     };
-    this.debugMode = process.env.ORCHESTRATOR_DEBUG === 'true';
+    this.debugMode = process.env.DEBUG_MODE === 'true';
   }
 
   /**

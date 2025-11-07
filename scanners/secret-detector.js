@@ -21,7 +21,7 @@ class SecretDetectorScanner {
   constructor() {
     this.name = 'Secret Detector (Gitleaks)';
     this.binaryPath = null;
-    this.debugMode = process.env.SECRET_SCANNER_DEBUG === 'true';
+    this.debugMode = process.env.DEBUG_MODE === 'true';
   }
 
   /**

@@ -13,7 +13,7 @@ class TrivyScanner {
   constructor() {
     this.name = 'Trivy Vulnerability Scanner';
     this.binaryPath = null;
-    this.debugMode = process.env.TRIVY_SCANNER_DEBUG === 'true';
+    this.debugMode = process.env.DEBUG_MODE === 'true';
   }
 
   /**

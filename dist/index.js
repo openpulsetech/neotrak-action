@@ -15184,7 +15184,7 @@ class ConfigScanner {
     constructor() {
         this.name = 'Trivy config Scanner';
         this.binaryPath = null; // Path to Trivy binary
-        this.debugMode = process.env.CONFIG_SCANNER_DEBUG === 'true';
+        this.debugMode = process.env.DEBUG_MODE === 'true';
     }
 
     /**
@@ -15744,7 +15744,7 @@ class TrivyScanner {
   constructor() {
     this.name = 'Trivy Vulnerability Scanner';
     this.binaryPath = null;
-    this.debugMode = process.env.TRIVY_SCANNER_DEBUG === 'true';
+    this.debugMode = process.env.DEBUG_MODE === 'true';
   }
 
   /**
@@ -31933,7 +31933,7 @@ class SecretDetectorScanner {
   constructor() {
     this.name = 'Secret Detector (Gitleaks)';
     this.binaryPath = null;
-    this.debugMode = process.env.SECRET_SCANNER_DEBUG === 'true';
+    this.debugMode = process.env.DEBUG_MODE === 'true';
   }
 
   /**
@@ -45315,10 +45315,6 @@ const axios = __webpack_require__(9329);
 const index_FormData = __webpack_require__(737);
 const fs = __webpack_require__(9896);
 
-// Future scanners can be imported here
-// const grypeScanner = require('./scanners/grype');
-// const snykScanner = require('./scanners/snyk');
-
 class NTUSecurityOrchestrator {
   constructor() {
     this.scanners = [];
@@ -45330,7 +45326,7 @@ class NTUSecurityOrchestrator {
       low: 0,
       scannerResults: []
     };
-    this.debugMode = process.env.ORCHESTRATOR_DEBUG === 'true';
+    this.debugMode = process.env.DEBUG_MODE === 'true';
   }
 
   /**

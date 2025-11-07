@@ -9,7 +9,7 @@ class ConfigScanner {
     constructor() {
         this.name = 'Trivy config Scanner';
         this.binaryPath = null; // Path to Trivy binary
-        this.debugMode = process.env.CONFIG_SCANNER_DEBUG === 'true';
+        this.debugMode = process.env.DEBUG_MODE === 'true';
     }
 
     /**
