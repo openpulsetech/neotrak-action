@@ -15219,11 +15219,6 @@ class ConfigScanner {
 
             // Build command string
             let command = `${this.binaryPath} config --format json --output ${reportPath}`;
-
-            // Add severity filter if specified
-            // if (severityUpper && severityUpper !== 'ALL') {
-            //     command += ` --severity ${severityUpper}`;
-            // }
             command += ` ${targetPath}`;
 
             core.info(`📝 Running: ${command}`);
@@ -32154,40 +32149,40 @@ tags = ["mailjet", "apikey"]
     return segments.join('/');
   }
 
-  async sendSecretsToApi(projectId, secretItems) {
-    const apiUrl = `https://dev.neoTrak.io/open-pulse/project/update-secrets/${projectId}`;
-    const secretsData = secretItems.map(item => this.mapToSBOMSecret(item));
+  // async sendSecretsToApi(projectId, secretItems) {
+  //   const apiUrl = `https://dev.neoTrak.io/open-pulse/project/update-secrets/${projectId}`;
+  //   const secretsData = secretItems.map(item => this.mapToSBOMSecret(item));
 
-    const headers = {
-      'Content-Type': 'application/json',
-    };
+  //   const headers = {
+  //     'Content-Type': 'application/json',
+  //   };
 
-    const apiKey = process.env.X_API_KEY;
-    const secretKey = process.env.X_SECRET_KEY;
-    const tenantKey = process.env.X_TENANT_KEY;
+  //   const apiKey = process.env.X_API_KEY;
+  //   const secretKey = process.env.X_SECRET_KEY;
+  //   const tenantKey = process.env.X_TENANT_KEY;
 
-    if (apiKey) headers['x-api-key'] = apiKey;
-    if (secretKey) headers['x-secret-key'] = secretKey;
-    if (tenantKey) headers['x-tenant-key'] = tenantKey;
+  //   if (apiKey) headers['x-api-key'] = apiKey;
+  //   if (secretKey) headers['x-secret-key'] = secretKey;
+  //   if (tenantKey) headers['x-tenant-key'] = tenantKey;
 
-    try {
-      core.debug('Sending secrets:', JSON.stringify(secretsData, null, 2));
+  //   try {
+  //     core.debug('Sending secrets:', JSON.stringify(secretsData, null, 2));
 
-      const response = await axios.post(apiUrl, secretsData, {
-        headers,
-        timeout: 60000,
-      });
+  //     const response = await axios.post(apiUrl, secretsData, {
+  //       headers,
+  //       timeout: 60000,
+  //     });
 
-      if (response.status >= 200 && response.status < 300) {
-        core.info('✅ Secrets updated successfully in SBOM API.');
-      } else {
-        core.error(`❌ Failed to update secrets. Status: ${response.status}`);
-        core.error('Response body:', response.data);
-      }
-    } catch (err) {
-      core.error('❌ Error sending secrets to SBOM API:', err.message || err);
-    }
-  }
+  //     if (response.status >= 200 && response.status < 300) {
+  //       core.info('✅ Secrets updated successfully in SBOM API.');
+  //     } else {
+  //       core.error(`❌ Failed to update secrets. Status: ${response.status}`);
+  //       core.error('Response body:', response.data);
+  //     }
+  //   } catch (err) {
+  //     core.error('❌ Error sending secrets to SBOM API:', err.message || err);
+  //   }
+  // }
 
   /**
    * Required by orchestrator
@@ -32279,16 +32274,16 @@ tags = ["mailjet", "apikey"]
       core.info(`🔐 Unique secrets detected: ${deduplicated.length}`);
       core.info(`⏰ Scan duration: ${durationStr}`);
 
-      // Send secrets to API if found and PROJECT_ID is set
-      if (deduplicated.length > 0) {
-        const projectId = process.env.PROJECT_ID;
-        if (projectId) {
-          core.debug('Raw secrets data:', JSON.stringify(deduplicated, null, 2));
-          await this.sendSecretsToApi(projectId, deduplicated);
-        } else {
-          core.warning('PROJECT_ID environment variable not set. Skipping API upload.');
-        }
-      }
+      // // Send secrets to API if found and PROJECT_ID is set
+      // if (deduplicated.length > 0) {
+      //   const projectId = process.env.PROJECT_ID;
+      //   if (projectId) {
+      //     core.debug('Raw secrets data:', JSON.stringify(deduplicated, null, 2));
+      //     await this.sendSecretsToApi(projectId, deduplicated);
+      //   } else {
+      //     core.warning('PROJECT_ID environment variable not set. Skipping API upload.');
+      //   }
+      // }
 
       // Clean up temporary files
       try {
@@ -45333,7 +45328,7 @@ const secretDetectorScanner = __webpack_require__(8432);
 const configScanner = __webpack_require__(3439);
 const path = __webpack_require__(6928);
 
-const index_axios = __webpack_require__(9329);
+const axios = __webpack_require__(9329);
 const index_FormData = __webpack_require__(737);
 const fs = __webpack_require__(9896);
 
@@ -45556,7 +45551,7 @@ class NTUSecurityOrchestrator {
 
         // ✅ 6. Send POST request with extended timeout
         core.info('⏳ Sending request to API (this may take a few minutes)...');
-        const response = await index_axios.post(apiUrl, formData, {
+        const response = await axios.post(apiUrl, formData, {
           headers,
           maxBodyLength: Infinity,
           timeout: 300000  // Increased to 5 minutes (300 seconds)
