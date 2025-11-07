@@ -9,6 +9,16 @@ class ConfigScanner {
     constructor() {
         this.name = 'Trivy config Scanner';
         this.binaryPath = null; // Path to Trivy binary
+        this.debugMode = process.env.CONFIG_SCANNER_DEBUG === 'true';
+    }
+
+    /**
+     * Log message only if debug mode is enabled
+     */
+    debugLog(message) {
+        if (this.debugMode) {
+            core.info(message);
+        }
     }
 
     async install() {
@@ -38,7 +48,7 @@ class ConfigScanner {
 
             const severityUpper = severity.toUpperCase();
             core.info(`🔍 Scanning: ${targetPath}`);
-            core.info(`⚠️  Severity: ${severityUpper}`);
+            this.debugLog(`⚠️  Severity: ${severityUpper}`);
 
             const reportPath = path.join(os.tmpdir(), `trivy-config-scan-${Date.now()}.json`);
 
@@ -46,11 +56,11 @@ class ConfigScanner {
             let command = `${this.binaryPath} config --format json --output ${reportPath}`;
             command += ` ${targetPath}`;
 
-            core.info(`📝 Running: ${command}`);
+            this.debugLog(`📝 Running: ${command}`);
 
             // Use workspace directory as working directory
             const workingDir = workspaceDir || process.cwd();
-            core.info(`📂 Working directory: ${workingDir}`);
+            this.debugLog(`📂 Working directory: ${workingDir}`);
 
             try {
                 const output = execSync(command, {
@@ -59,19 +69,19 @@ class ConfigScanner {
                     stdio: ['pipe', 'pipe', 'pipe']
                 });
 
-                core.info(`✅ Scan completed successfully`);
+                this.debugLog(`✅ Scan completed successfully`);
                 if (output) {
-                    core.debug(`Output: ${output}`);
+                    this.debugLog(`Output: ${output}`);
                 }
             } catch (error) {
                 // execSync throws on non-zero exit code, but that's okay for Trivy
                 if (error.stdout) {
-                    core.debug(`Stdout: ${error.stdout}`);
+                    this.debugLog(`Stdout: ${error.stdout}`);
                 }
                 if (error.stderr) {
-                    core.warning(`Stderr: ${error.stderr}`);
+                    this.debugLog(`Stderr: ${error.stderr}`);
                 }
-                core.info(`✅ Scan completed with exit code: ${error.status || 0}`);
+                this.debugLog(`✅ Scan completed with exit code: ${error.status || 0}`);
             }
 
             if (!fs.existsSync(reportPath)) {
@@ -193,7 +203,7 @@ class ConfigScanner {
                 files.forEach((file, index) => {
                     const fileResults = data.Results.find(r => r.Target === file);
                     const fileMisconfigCount = fileResults?.Misconfigurations?.length || 0;
-                    core.info(`   ${index + 1}. ${file} (${fileMisconfigCount} issues)`);
+                    this.debugLog(`   ${index + 1}. ${file} (${fileMisconfigCount} issues)`);
                 });
             }
 

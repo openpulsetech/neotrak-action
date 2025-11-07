@@ -13,6 +13,16 @@ class TrivyScanner {
   constructor() {
     this.name = 'Trivy Vulnerability Scanner';
     this.binaryPath = null;
+    this.debugMode = process.env.TRIVY_SCANNER_DEBUG === 'true';
+  }
+
+  /**
+   * Log message only if debug mode is enabled
+   */
+  debugLog(message) {
+    if (this.debugMode) {
+      core.info(message);
+    }
   }
 
   /**
@@ -125,14 +135,14 @@ class TrivyScanner {
       
       // Convert severity to uppercase (Trivy expects uppercase)
       const severityUpper = severity.toUpperCase();
-      
+
       core.info(`🔍 Scanning: ${scanTarget}`);
-      core.info(`🎯 Scan Type: ${scanType}`);
-      core.info(`⚠️  Severity: ${severityUpper}`);
-      
+      this.debugLog(`🎯 Scan Type: ${scanType}`);
+      this.debugLog(`⚠️  Severity: ${severityUpper}`);
+
       // Create temporary output file for JSON results
       const jsonOutputPath = path.join(os.tmpdir(), `trivy-scan-results-${Date.now()}.json`);
-      
+
       // Build command arguments
       const args = [
         scanType,
@@ -142,22 +152,22 @@ class TrivyScanner {
         '--exit-code', '0', // Always return 0, we handle failures in orchestrator
         '--quiet' // Reduce noise
       ];
-      
+
       if (ignoreUnfixed) {
         args.push('--ignore-unfixed');
       }
-      
+
       // Add skip dirs to avoid scanning action's own files
       args.push('--skip-dirs', 'node_modules,.git,.github');
-      
+
       args.push(scanTarget);
-      
-      core.info(`📝 Running: ${SCANNER_BINARY} ${args.join(' ')}`);
-      
+
+      this.debugLog(`📝 Running: ${SCANNER_BINARY} ${args.join(' ')}`);
+
       // Execute scan
       let stdoutOutput = '';
       let stderrOutput = '';
-      
+
       const options = {
         listeners: {
           stdout: (data) => {
@@ -170,18 +180,18 @@ class TrivyScanner {
         ignoreReturnCode: true,
         cwd: path.dirname(scanTarget)
       };
-      
+
       const exitCode = await exec.exec(SCANNER_BINARY, args, options);
-      
-      core.info(`✅ Scan completed with exit code: ${exitCode}`);
-      
+
+      this.debugLog(`✅ Scan completed with exit code: ${exitCode}`);
+
       // Log any stderr (but not as error if exit code is 0)
       if (stderrOutput && exitCode !== 0) {
-        core.warning(`Stderr output: ${stderrOutput}`);
+        this.debugLog(`Stderr output: ${stderrOutput}`);
       }
-      
+
       // Parse results
-      core.info(`📄 Reading results from: ${jsonOutputPath}`);
+      this.debugLog(`📄 Reading results from: ${jsonOutputPath}`);
       
       // Check if file was created
       if (!fs.existsSync(jsonOutputPath)) {
@@ -229,10 +239,10 @@ class TrivyScanner {
       }
       
       const stats = fs.statSync(jsonPath);
-      core.info(`📊 JSON file size: ${stats.size} bytes`);
-      
+      this.debugLog(`📊 JSON file size: ${stats.size} bytes`);
+
       const jsonContent = fs.readFileSync(jsonPath, 'utf8');
-      
+
       if (!jsonContent || jsonContent.trim() === '') {
         core.warning('⚠️ JSON output file is empty');
         return {
@@ -244,27 +254,27 @@ class TrivyScanner {
           vulnerabilities: []
         };
       }
-      
-      core.debug(`First 200 chars of JSON: ${jsonContent.substring(0, 200)}`);
-      
+
+      this.debugLog(`First 200 chars of JSON: ${jsonContent.substring(0, 200)}`);
+
       const data = JSON.parse(jsonContent);
-      
+
       let criticalCount = 0;
       let highCount = 0;
       let mediumCount = 0;
       let lowCount = 0;
       const vulnerabilities = [];
-      
+
       // Check if Results exists and has data
       if (data.Results && Array.isArray(data.Results)) {
-        core.info(`📦 Processing ${data.Results.length} result(s)`);
-        
+        this.debugLog(`📦 Processing ${data.Results.length} result(s)`);
+
         data.Results.forEach((result, idx) => {
-          core.debug(`Result ${idx + 1}: Type=${result.Type}, Target=${result.Target}`);
-          
+          this.debugLog(`Result ${idx + 1}: Type=${result.Type}, Target=${result.Target}`);
+
           if (result.Vulnerabilities && Array.isArray(result.Vulnerabilities)) {
-            core.info(`   📋 Result ${idx + 1} (${result.Type || 'unknown'}): ${result.Vulnerabilities.length} vulnerabilities`);
-            
+            this.debugLog(`   📋 Result ${idx + 1} (${result.Type || 'unknown'}): ${result.Vulnerabilities.length} vulnerabilities`);
+
             result.Vulnerabilities.forEach(vuln => {
               vulnerabilities.push({
                 id: vuln.VulnerabilityID,
@@ -274,7 +284,7 @@ class TrivyScanner {
                 fixedVersion: vuln.FixedVersion,
                 title: vuln.Title
               });
-              
+
               switch (vuln.Severity) {
                 case 'CRITICAL':
                   criticalCount++;
@@ -291,13 +301,13 @@ class TrivyScanner {
               }
             });
           } else {
-            core.info(`   ✅ Result ${idx + 1} (${result.Type || 'unknown'}): No vulnerabilities`);
+            this.debugLog(`   ✅ Result ${idx + 1} (${result.Type || 'unknown'}): No vulnerabilities`);
           }
         });
       } else {
-        core.warning('⚠️ No Results array found in JSON output');
+        this.debugLog('⚠️ No Results array found in JSON output');
         if (data) {
-          core.debug(`JSON keys: ${Object.keys(data).join(', ')}`);
+          this.debugLog(`JSON keys: ${Object.keys(data).join(', ')}`);
         }
       }
       

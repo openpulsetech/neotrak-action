@@ -15184,6 +15184,16 @@ class ConfigScanner {
     constructor() {
         this.name = 'Trivy config Scanner';
         this.binaryPath = null; // Path to Trivy binary
+        this.debugMode = process.env.CONFIG_SCANNER_DEBUG === 'true';
+    }
+
+    /**
+     * Log message only if debug mode is enabled
+     */
+    debugLog(message) {
+        if (this.debugMode) {
+            core.info(message);
+        }
     }
 
     async install() {
@@ -15213,7 +15223,7 @@ class ConfigScanner {
 
             const severityUpper = severity.toUpperCase();
             core.info(`🔍 Scanning: ${targetPath}`);
-            core.info(`⚠️  Severity: ${severityUpper}`);
+            this.debugLog(`⚠️  Severity: ${severityUpper}`);
 
             const reportPath = path.join(os.tmpdir(), `trivy-config-scan-${Date.now()}.json`);
 
@@ -15221,11 +15231,11 @@ class ConfigScanner {
             let command = `${this.binaryPath} config --format json --output ${reportPath}`;
             command += ` ${targetPath}`;
 
-            core.info(`📝 Running: ${command}`);
+            this.debugLog(`📝 Running: ${command}`);
 
             // Use workspace directory as working directory
             const workingDir = workspaceDir || process.cwd();
-            core.info(`📂 Working directory: ${workingDir}`);
+            this.debugLog(`📂 Working directory: ${workingDir}`);
 
             try {
                 const output = execSync(command, {
@@ -15234,19 +15244,19 @@ class ConfigScanner {
                     stdio: ['pipe', 'pipe', 'pipe']
                 });
 
-                core.info(`✅ Scan completed successfully`);
+                this.debugLog(`✅ Scan completed successfully`);
                 if (output) {
-                    core.debug(`Output: ${output}`);
+                    this.debugLog(`Output: ${output}`);
                 }
             } catch (error) {
                 // execSync throws on non-zero exit code, but that's okay for Trivy
                 if (error.stdout) {
-                    core.debug(`Stdout: ${error.stdout}`);
+                    this.debugLog(`Stdout: ${error.stdout}`);
                 }
                 if (error.stderr) {
-                    core.warning(`Stderr: ${error.stderr}`);
+                    this.debugLog(`Stderr: ${error.stderr}`);
                 }
-                core.info(`✅ Scan completed with exit code: ${error.status || 0}`);
+                this.debugLog(`✅ Scan completed with exit code: ${error.status || 0}`);
             }
 
             if (!fs.existsSync(reportPath)) {
@@ -15368,7 +15378,7 @@ class ConfigScanner {
                 files.forEach((file, index) => {
                     const fileResults = data.Results.find(r => r.Target === file);
                     const fileMisconfigCount = fileResults?.Misconfigurations?.length || 0;
-                    core.info(`   ${index + 1}. ${file} (${fileMisconfigCount} issues)`);
+                    this.debugLog(`   ${index + 1}. ${file} (${fileMisconfigCount} issues)`);
                 });
             }
 
@@ -15734,6 +15744,16 @@ class TrivyScanner {
   constructor() {
     this.name = 'Trivy Vulnerability Scanner';
     this.binaryPath = null;
+    this.debugMode = process.env.TRIVY_SCANNER_DEBUG === 'true';
+  }
+
+  /**
+   * Log message only if debug mode is enabled
+   */
+  debugLog(message) {
+    if (this.debugMode) {
+      core.info(message);
+    }
   }
 
   /**
@@ -15846,14 +15866,14 @@ class TrivyScanner {
       
       // Convert severity to uppercase (Trivy expects uppercase)
       const severityUpper = severity.toUpperCase();
-      
+
       core.info(`🔍 Scanning: ${scanTarget}`);
-      core.info(`🎯 Scan Type: ${scanType}`);
-      core.info(`⚠️  Severity: ${severityUpper}`);
-      
+      this.debugLog(`🎯 Scan Type: ${scanType}`);
+      this.debugLog(`⚠️  Severity: ${severityUpper}`);
+
       // Create temporary output file for JSON results
       const jsonOutputPath = path.join(os.tmpdir(), `trivy-scan-results-${Date.now()}.json`);
-      
+
       // Build command arguments
       const args = [
         scanType,
@@ -15863,22 +15883,22 @@ class TrivyScanner {
         '--exit-code', '0', // Always return 0, we handle failures in orchestrator
         '--quiet' // Reduce noise
       ];
-      
+
       if (ignoreUnfixed) {
         args.push('--ignore-unfixed');
       }
-      
+
       // Add skip dirs to avoid scanning action's own files
       args.push('--skip-dirs', 'node_modules,.git,.github');
-      
+
       args.push(scanTarget);
-      
-      core.info(`📝 Running: ${SCANNER_BINARY} ${args.join(' ')}`);
-      
+
+      this.debugLog(`📝 Running: ${SCANNER_BINARY} ${args.join(' ')}`);
+
       // Execute scan
       let stdoutOutput = '';
       let stderrOutput = '';
-      
+
       const options = {
         listeners: {
           stdout: (data) => {
@@ -15891,18 +15911,18 @@ class TrivyScanner {
         ignoreReturnCode: true,
         cwd: path.dirname(scanTarget)
       };
-      
+
       const exitCode = await exec.exec(SCANNER_BINARY, args, options);
-      
-      core.info(`✅ Scan completed with exit code: ${exitCode}`);
-      
+
+      this.debugLog(`✅ Scan completed with exit code: ${exitCode}`);
+
       // Log any stderr (but not as error if exit code is 0)
       if (stderrOutput && exitCode !== 0) {
-        core.warning(`Stderr output: ${stderrOutput}`);
+        this.debugLog(`Stderr output: ${stderrOutput}`);
       }
-      
+
       // Parse results
-      core.info(`📄 Reading results from: ${jsonOutputPath}`);
+      this.debugLog(`📄 Reading results from: ${jsonOutputPath}`);
       
       // Check if file was created
       if (!fs.existsSync(jsonOutputPath)) {
@@ -15950,10 +15970,10 @@ class TrivyScanner {
       }
       
       const stats = fs.statSync(jsonPath);
-      core.info(`📊 JSON file size: ${stats.size} bytes`);
-      
+      this.debugLog(`📊 JSON file size: ${stats.size} bytes`);
+
       const jsonContent = fs.readFileSync(jsonPath, 'utf8');
-      
+
       if (!jsonContent || jsonContent.trim() === '') {
         core.warning('⚠️ JSON output file is empty');
         return {
@@ -15965,27 +15985,27 @@ class TrivyScanner {
           vulnerabilities: []
         };
       }
-      
-      core.debug(`First 200 chars of JSON: ${jsonContent.substring(0, 200)}`);
-      
+
+      this.debugLog(`First 200 chars of JSON: ${jsonContent.substring(0, 200)}`);
+
       const data = JSON.parse(jsonContent);
-      
+
       let criticalCount = 0;
       let highCount = 0;
       let mediumCount = 0;
       let lowCount = 0;
       const vulnerabilities = [];
-      
+
       // Check if Results exists and has data
       if (data.Results && Array.isArray(data.Results)) {
-        core.info(`📦 Processing ${data.Results.length} result(s)`);
-        
+        this.debugLog(`📦 Processing ${data.Results.length} result(s)`);
+
         data.Results.forEach((result, idx) => {
-          core.debug(`Result ${idx + 1}: Type=${result.Type}, Target=${result.Target}`);
-          
+          this.debugLog(`Result ${idx + 1}: Type=${result.Type}, Target=${result.Target}`);
+
           if (result.Vulnerabilities && Array.isArray(result.Vulnerabilities)) {
-            core.info(`   📋 Result ${idx + 1} (${result.Type || 'unknown'}): ${result.Vulnerabilities.length} vulnerabilities`);
-            
+            this.debugLog(`   📋 Result ${idx + 1} (${result.Type || 'unknown'}): ${result.Vulnerabilities.length} vulnerabilities`);
+
             result.Vulnerabilities.forEach(vuln => {
               vulnerabilities.push({
                 id: vuln.VulnerabilityID,
@@ -15995,7 +16015,7 @@ class TrivyScanner {
                 fixedVersion: vuln.FixedVersion,
                 title: vuln.Title
               });
-              
+
               switch (vuln.Severity) {
                 case 'CRITICAL':
                   criticalCount++;
@@ -16012,13 +16032,13 @@ class TrivyScanner {
               }
             });
           } else {
-            core.info(`   ✅ Result ${idx + 1} (${result.Type || 'unknown'}): No vulnerabilities`);
+            this.debugLog(`   ✅ Result ${idx + 1} (${result.Type || 'unknown'}): No vulnerabilities`);
           }
         });
       } else {
-        core.warning('⚠️ No Results array found in JSON output');
+        this.debugLog('⚠️ No Results array found in JSON output');
         if (data) {
-          core.debug(`JSON keys: ${Object.keys(data).join(', ')}`);
+          this.debugLog(`JSON keys: ${Object.keys(data).join(', ')}`);
         }
       }
       
@@ -31895,7 +31915,6 @@ const exec = __webpack_require__(6665);
 const os = __webpack_require__(857);
 const fs = __webpack_require__(9896);
 const path = __webpack_require__(6928);
-//const axios = require('axios');
 
 const GITLEAKS_VERSION = 'v8.27.2';
 const GITLEAKS_BINARY = 'gitleaks';
@@ -31914,6 +31933,16 @@ class SecretDetectorScanner {
   constructor() {
     this.name = 'Secret Detector (Gitleaks)';
     this.binaryPath = null;
+    this.debugMode = process.env.SECRET_SCANNER_DEBUG === 'true';
+  }
+
+  /**
+   * Log message only if debug mode is enabled
+   */
+  debugLog(message) {
+    if (this.debugMode) {
+      core.info(message);
+    }
   }
 
   async install() {
@@ -32094,9 +32123,9 @@ tags = ["mailjet", "apikey"]
     };
 
     const exitCode = await exec.exec(this.binaryPath, args, options);
-    core.info(`Gitleaks STDOUT: ${stdoutOutput}`);
+    this.debugLog(`Gitleaks STDOUT: ${stdoutOutput}`);
     if (stderrOutput && stderrOutput.trim()) {
-      core.info(`Gitleaks STDERR: ${stderrOutput}`);
+      this.debugLog(`Gitleaks STDERR: ${stderrOutput}`);
     }
 
     return exitCode;
@@ -32149,41 +32178,6 @@ tags = ["mailjet", "apikey"]
     return segments.join('/');
   }
 
-  // async sendSecretsToApi(projectId, secretItems) {
-  //   const apiUrl = `https://dev.neoTrak.io/open-pulse/project/update-secrets/${projectId}`;
-  //   const secretsData = secretItems.map(item => this.mapToSBOMSecret(item));
-
-  //   const headers = {
-  //     'Content-Type': 'application/json',
-  //   };
-
-  //   const apiKey = process.env.X_API_KEY;
-  //   const secretKey = process.env.X_SECRET_KEY;
-  //   const tenantKey = process.env.X_TENANT_KEY;
-
-  //   if (apiKey) headers['x-api-key'] = apiKey;
-  //   if (secretKey) headers['x-secret-key'] = secretKey;
-  //   if (tenantKey) headers['x-tenant-key'] = tenantKey;
-
-  //   try {
-  //     core.debug('Sending secrets:', JSON.stringify(secretsData, null, 2));
-
-  //     const response = await axios.post(apiUrl, secretsData, {
-  //       headers,
-  //       timeout: 60000,
-  //     });
-
-  //     if (response.status >= 200 && response.status < 300) {
-  //       core.info('✅ Secrets updated successfully in SBOM API.');
-  //     } else {
-  //       core.error(`❌ Failed to update secrets. Status: ${response.status}`);
-  //       core.error('Response body:', response.data);
-  //     }
-  //   } catch (err) {
-  //     core.error('❌ Error sending secrets to SBOM API:', err.message || err);
-  //   }
-  // }
-
   /**
    * Required by orchestrator
    */
@@ -32219,24 +32213,24 @@ tags = ["mailjet", "apikey"]
             const isExcludedDir = excludedDirs.some(dir => item.File.includes(dir));
 
             if (shouldSkip) {
-              core.info(`⏭️  Skipping ${item.File} - in skipFiles list`);
+              this.debugLog(`⏭️  Skipping ${item.File} - in skipFiles list`);
             }
             if (hasNodeModules) {
-              core.info(`⏭️  Skipping ${item.File} - node_modules`);
+              this.debugLog(`⏭️  Skipping ${item.File} - node_modules`);
             }
-       
+
             if (isEnvVar) {
-              core.info(`⏭️  Skipping ${item.File} - env variable pattern: ${item.Match}`);
+              this.debugLog(`⏭️  Skipping ${item.File} - env variable pattern: ${item.Match}`);
             }
 
           if (isExcludedDir) {
-            core.info(`⏭️  Skipping ${item.File} - excluded directory`);
+            this.debugLog(`⏭️  Skipping ${item.File} - excluded directory`);
           }
             return !shouldSkip && !hasNodeModules && !isExcludedDir && !isEnvVar;
           })
         : result;
 
-      core.info(`✅ Secrets after filtering: ${Array.isArray(filtered) ? filtered.length : 0}`);
+      this.debugLog(`✅ Secrets after filtering: ${Array.isArray(filtered) ? filtered.length : 0}`);
 
       // ✅ Deduplicate secrets based on File + StartLine + Secret
       const deduplicated = Array.isArray(filtered)
@@ -32246,13 +32240,13 @@ tags = ["mailjet", "apikey"]
               acc.seen.add(key);
               acc.results.push(item);
             } else {
-              core.info(`⏭️  Skipping duplicate: ${item.File}:${item.StartLine} (${item.RuleID})`);
+              this.debugLog(`⏭️  Skipping duplicate: ${item.File}:${item.StartLine} (${item.RuleID})`);
             }
             return acc;
           }, { seen: new Set(), results: [] }).results
         : [];
 
-      core.info(`✅ Secrets after deduplication: ${deduplicated.length}`);
+      this.debugLog(`✅ Secrets after deduplication: ${deduplicated.length}`);
 
       const filteredSecrets = deduplicated.map(item => ({
         RuleID: item.RuleID || '',
@@ -32273,17 +32267,6 @@ tags = ["mailjet", "apikey"]
 
       core.info(`🔐 Unique secrets detected: ${deduplicated.length}`);
       core.info(`⏰ Scan duration: ${durationStr}`);
-
-      // // Send secrets to API if found and PROJECT_ID is set
-      // if (deduplicated.length > 0) {
-      //   const projectId = process.env.PROJECT_ID;
-      //   if (projectId) {
-      //     core.debug('Raw secrets data:', JSON.stringify(deduplicated, null, 2));
-      //     await this.sendSecretsToApi(projectId, deduplicated);
-      //   } else {
-      //     core.warning('PROJECT_ID environment variable not set. Skipping API upload.');
-      //   }
-      // }
 
       // Clean up temporary files
       try {
@@ -45347,6 +45330,16 @@ class NTUSecurityOrchestrator {
       low: 0,
       scannerResults: []
     };
+    this.debugMode = process.env.ORCHESTRATOR_DEBUG === 'true';
+  }
+
+  /**
+   * Log message only if debug mode is enabled
+   */
+  debugLog(message) {
+    if (this.debugMode) {
+      core.info(message);
+    }
   }
 
   /**
@@ -45516,10 +45509,10 @@ class NTUSecurityOrchestrator {
 
         // ✅ 5. Print request details (only on first attempt)
         if (attempt === 1) {
-          core.info('📋 Request Details:');
-          core.info(`URL: ${apiUrl}`);
-          core.info(`Headers: ${JSON.stringify(headers, null, 2)}`);
-          core.info(`FormData fields: ${JSON.stringify({
+          this.debugLog('📋 Request Details:');
+          this.debugLog(`URL: ${apiUrl}`);
+          this.debugLog(`Headers: ${JSON.stringify(headers, null, 2)}`);
+          this.debugLog(`FormData fields: ${JSON.stringify({
             combinedScanRequest: 'JSON string (see below)',
             sbomFile: sbomPath,
             displayName: process.env.DISPLAY_NAME || 'sbom',
@@ -45527,26 +45520,26 @@ class NTUSecurityOrchestrator {
             cicdSource: process.env.CICD_SOURCE || 'not set',
             jobId: process.env.JOB_ID || 'not set'
           }, null, 2)}`);
-          core.info(`\n📦 CombinedScanRequest Structure:`);
-          core.info(`  - configScanResponseDto:`);
-          core.info(`      ArtifactName: ${combinedScanRequest.configScanResponseDto.ArtifactName}`);
-          core.info(`      ArtifactType: ${combinedScanRequest.configScanResponseDto.ArtifactType}`);
-          core.info(`      Results count: ${combinedScanRequest.configScanResponseDto.Results?.length || 0}`);
+          this.debugLog(`\n📦 CombinedScanRequest Structure:`);
+          this.debugLog(`  - configScanResponseDto:`);
+          this.debugLog(`      ArtifactName: ${combinedScanRequest.configScanResponseDto.ArtifactName}`);
+          this.debugLog(`      ArtifactType: ${combinedScanRequest.configScanResponseDto.ArtifactType}`);
+          this.debugLog(`      Results count: ${combinedScanRequest.configScanResponseDto.Results?.length || 0}`);
 
           // Count total misconfigurations across all results
           const totalMisconfigs = combinedScanRequest.configScanResponseDto.Results?.reduce((sum, result) => {
             return sum + (result.Misconfigurations?.length || 0);
           }, 0) || 0;
-          core.info(`      Total Misconfigurations: ${totalMisconfigs}`);
+          this.debugLog(`      Total Misconfigurations: ${totalMisconfigs}`);
 
           // Log each result file and its misconfiguration count
           combinedScanRequest.configScanResponseDto.Results?.forEach((result, idx) => {
-            core.info(`      Result ${idx + 1}: ${result.Target} (${result.Misconfigurations?.length || 0} issues)`);
+            this.debugLog(`      Result ${idx + 1}: ${result.Target} (${result.Misconfigurations?.length || 0} issues)`);
           });
 
-          core.info(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
-          core.info(`\n📋 Full CombinedScanRequest JSON:`);
-          core.info(JSON.stringify(combinedScanRequest, null, 2));
+          this.debugLog(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
+          this.debugLog(`\n📋 Full CombinedScanRequest JSON:`);
+          this.debugLog(JSON.stringify(combinedScanRequest, null, 2));
         }
 
         // ✅ 6. Send POST request with extended timeout

@@ -3,7 +3,6 @@ const exec = require('@actions/exec');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
-//const axios = require('axios');
 
 const GITLEAKS_VERSION = 'v8.27.2';
 const GITLEAKS_BINARY = 'gitleaks';
@@ -22,6 +21,16 @@ class SecretDetectorScanner {
   constructor() {
     this.name = 'Secret Detector (Gitleaks)';
     this.binaryPath = null;
+    this.debugMode = process.env.SECRET_SCANNER_DEBUG === 'true';
+  }
+
+  /**
+   * Log message only if debug mode is enabled
+   */
+  debugLog(message) {
+    if (this.debugMode) {
+      core.info(message);
+    }
   }
 
   async install() {
@@ -202,9 +211,9 @@ tags = ["mailjet", "apikey"]
     };
 
     const exitCode = await exec.exec(this.binaryPath, args, options);
-    core.info(`Gitleaks STDOUT: ${stdoutOutput}`);
+    this.debugLog(`Gitleaks STDOUT: ${stdoutOutput}`);
     if (stderrOutput && stderrOutput.trim()) {
-      core.info(`Gitleaks STDERR: ${stderrOutput}`);
+      this.debugLog(`Gitleaks STDERR: ${stderrOutput}`);
     }
 
     return exitCode;
@@ -257,41 +266,6 @@ tags = ["mailjet", "apikey"]
     return segments.join('/');
   }
 
-  // async sendSecretsToApi(projectId, secretItems) {
-  //   const apiUrl = `https://dev.neoTrak.io/open-pulse/project/update-secrets/${projectId}`;
-  //   const secretsData = secretItems.map(item => this.mapToSBOMSecret(item));
-
-  //   const headers = {
-  //     'Content-Type': 'application/json',
-  //   };
-
-  //   const apiKey = process.env.X_API_KEY;
-  //   const secretKey = process.env.X_SECRET_KEY;
-  //   const tenantKey = process.env.X_TENANT_KEY;
-
-  //   if (apiKey) headers['x-api-key'] = apiKey;
-  //   if (secretKey) headers['x-secret-key'] = secretKey;
-  //   if (tenantKey) headers['x-tenant-key'] = tenantKey;
-
-  //   try {
-  //     core.debug('Sending secrets:', JSON.stringify(secretsData, null, 2));
-
-  //     const response = await axios.post(apiUrl, secretsData, {
-  //       headers,
-  //       timeout: 60000,
-  //     });
-
-  //     if (response.status >= 200 && response.status < 300) {
-  //       core.info('✅ Secrets updated successfully in SBOM API.');
-  //     } else {
-  //       core.error(`❌ Failed to update secrets. Status: ${response.status}`);
-  //       core.error('Response body:', response.data);
-  //     }
-  //   } catch (err) {
-  //     core.error('❌ Error sending secrets to SBOM API:', err.message || err);
-  //   }
-  // }
-
   /**
    * Required by orchestrator
    */
@@ -327,24 +301,24 @@ tags = ["mailjet", "apikey"]
             const isExcludedDir = excludedDirs.some(dir => item.File.includes(dir));
 
             if (shouldSkip) {
-              core.info(`⏭️  Skipping ${item.File} - in skipFiles list`);
+              this.debugLog(`⏭️  Skipping ${item.File} - in skipFiles list`);
             }
             if (hasNodeModules) {
-              core.info(`⏭️  Skipping ${item.File} - node_modules`);
+              this.debugLog(`⏭️  Skipping ${item.File} - node_modules`);
             }
-       
+
             if (isEnvVar) {
-              core.info(`⏭️  Skipping ${item.File} - env variable pattern: ${item.Match}`);
+              this.debugLog(`⏭️  Skipping ${item.File} - env variable pattern: ${item.Match}`);
             }
 
           if (isExcludedDir) {
-            core.info(`⏭️  Skipping ${item.File} - excluded directory`);
+            this.debugLog(`⏭️  Skipping ${item.File} - excluded directory`);
           }
             return !shouldSkip && !hasNodeModules && !isExcludedDir && !isEnvVar;
           })
         : result;
 
-      core.info(`✅ Secrets after filtering: ${Array.isArray(filtered) ? filtered.length : 0}`);
+      this.debugLog(`✅ Secrets after filtering: ${Array.isArray(filtered) ? filtered.length : 0}`);
 
       // ✅ Deduplicate secrets based on File + StartLine + Secret
       const deduplicated = Array.isArray(filtered)
@@ -354,13 +328,13 @@ tags = ["mailjet", "apikey"]
               acc.seen.add(key);
               acc.results.push(item);
             } else {
-              core.info(`⏭️  Skipping duplicate: ${item.File}:${item.StartLine} (${item.RuleID})`);
+              this.debugLog(`⏭️  Skipping duplicate: ${item.File}:${item.StartLine} (${item.RuleID})`);
             }
             return acc;
           }, { seen: new Set(), results: [] }).results
         : [];
 
-      core.info(`✅ Secrets after deduplication: ${deduplicated.length}`);
+      this.debugLog(`✅ Secrets after deduplication: ${deduplicated.length}`);
 
       const filteredSecrets = deduplicated.map(item => ({
         RuleID: item.RuleID || '',
@@ -381,17 +355,6 @@ tags = ["mailjet", "apikey"]
 
       core.info(`🔐 Unique secrets detected: ${deduplicated.length}`);
       core.info(`⏰ Scan duration: ${durationStr}`);
-
-      // // Send secrets to API if found and PROJECT_ID is set
-      // if (deduplicated.length > 0) {
-      //   const projectId = process.env.PROJECT_ID;
-      //   if (projectId) {
-      //     core.debug('Raw secrets data:', JSON.stringify(deduplicated, null, 2));
-      //     await this.sendSecretsToApi(projectId, deduplicated);
-      //   } else {
-      //     core.warning('PROJECT_ID environment variable not set. Skipping API upload.');
-      //   }
-      // }
 
       // Clean up temporary files
       try {

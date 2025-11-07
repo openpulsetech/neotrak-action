@@ -25,6 +25,16 @@ class NTUSecurityOrchestrator {
       low: 0,
       scannerResults: []
     };
+    this.debugMode = process.env.ORCHESTRATOR_DEBUG === 'true';
+  }
+
+  /**
+   * Log message only if debug mode is enabled
+   */
+  debugLog(message) {
+    if (this.debugMode) {
+      core.info(message);
+    }
   }
 
   /**
@@ -194,10 +204,10 @@ class NTUSecurityOrchestrator {
 
         // ✅ 5. Print request details (only on first attempt)
         if (attempt === 1) {
-          core.info('📋 Request Details:');
-          core.info(`URL: ${apiUrl}`);
-          core.info(`Headers: ${JSON.stringify(headers, null, 2)}`);
-          core.info(`FormData fields: ${JSON.stringify({
+          this.debugLog('📋 Request Details:');
+          this.debugLog(`URL: ${apiUrl}`);
+          this.debugLog(`Headers: ${JSON.stringify(headers, null, 2)}`);
+          this.debugLog(`FormData fields: ${JSON.stringify({
             combinedScanRequest: 'JSON string (see below)',
             sbomFile: sbomPath,
             displayName: process.env.DISPLAY_NAME || 'sbom',
@@ -205,26 +215,26 @@ class NTUSecurityOrchestrator {
             cicdSource: process.env.CICD_SOURCE || 'not set',
             jobId: process.env.JOB_ID || 'not set'
           }, null, 2)}`);
-          core.info(`\n📦 CombinedScanRequest Structure:`);
-          core.info(`  - configScanResponseDto:`);
-          core.info(`      ArtifactName: ${combinedScanRequest.configScanResponseDto.ArtifactName}`);
-          core.info(`      ArtifactType: ${combinedScanRequest.configScanResponseDto.ArtifactType}`);
-          core.info(`      Results count: ${combinedScanRequest.configScanResponseDto.Results?.length || 0}`);
+          this.debugLog(`\n📦 CombinedScanRequest Structure:`);
+          this.debugLog(`  - configScanResponseDto:`);
+          this.debugLog(`      ArtifactName: ${combinedScanRequest.configScanResponseDto.ArtifactName}`);
+          this.debugLog(`      ArtifactType: ${combinedScanRequest.configScanResponseDto.ArtifactType}`);
+          this.debugLog(`      Results count: ${combinedScanRequest.configScanResponseDto.Results?.length || 0}`);
 
           // Count total misconfigurations across all results
           const totalMisconfigs = combinedScanRequest.configScanResponseDto.Results?.reduce((sum, result) => {
             return sum + (result.Misconfigurations?.length || 0);
           }, 0) || 0;
-          core.info(`      Total Misconfigurations: ${totalMisconfigs}`);
+          this.debugLog(`      Total Misconfigurations: ${totalMisconfigs}`);
 
           // Log each result file and its misconfiguration count
           combinedScanRequest.configScanResponseDto.Results?.forEach((result, idx) => {
-            core.info(`      Result ${idx + 1}: ${result.Target} (${result.Misconfigurations?.length || 0} issues)`);
+            this.debugLog(`      Result ${idx + 1}: ${result.Target} (${result.Misconfigurations?.length || 0} issues)`);
           });
 
-          core.info(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
-          core.info(`\n📋 Full CombinedScanRequest JSON:`);
-          core.info(JSON.stringify(combinedScanRequest, null, 2));
+          this.debugLog(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
+          this.debugLog(`\n📋 Full CombinedScanRequest JSON:`);
+          this.debugLog(JSON.stringify(combinedScanRequest, null, 2));
         }
 
         // ✅ 6. Send POST request with extended timeout
