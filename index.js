@@ -608,7 +608,41 @@ ${this.results.total > 0 ?
       return false;
     }
 
-    return this.results.total > 0;
+    // Get fail-on configuration (default: true for all)
+    const failOnVulnerability = core.getInput('fail-on-vulnerability') !== 'false';
+    const failOnMisconfiguration = core.getInput('fail-on-misconfiguration') !== 'false';
+    const failOnSecret = core.getInput('fail-on-secret') !== 'false';
+
+    // Check each scanner type
+    const trivySbomResult = this.getTrivySbomResult();
+    const configResult = this.getConfigResult();
+    const secretResult = this.getSecretResult();
+
+    let shouldFail = false;
+    const failReasons = [];
+
+    // Check vulnerabilities
+    if (failOnVulnerability && trivySbomResult && trivySbomResult.total > 0) {
+      shouldFail = true;
+      failReasons.push(`${trivySbomResult.total} vulnerabilities (${trivySbomResult.critical} Critical, ${trivySbomResult.high} High)`);
+    }
+
+    // Check misconfigurations
+    if (failOnMisconfiguration && configResult && configResult.total > 0) {
+      shouldFail = true;
+      failReasons.push(`${configResult.total} misconfigurations (${configResult.critical} Critical, ${configResult.high} High)`);
+    }
+
+    // Check secrets
+    if (failOnSecret && secretResult && secretResult.total > 0) {
+      shouldFail = true;
+      failReasons.push(`${secretResult.total} secrets detected`);
+    }
+
+    // Store fail reasons for use in error message
+    this.failReasons = failReasons;
+
+    return shouldFail;
   }
 }
 
@@ -654,18 +688,8 @@ async function run() {
 
     // Check if should fail
     if (orchestrator.shouldFail()) {
-      const trivySbomResult = orchestrator.getTrivySbomResult();
-     if (trivySbomResult) {
-        core.setFailed(
-          `NTU Security Scanner found ${trivySbomResult.total} vulnerabilities ` +
-          `(${trivySbomResult.critical} Critical, ${trivySbomResult.high} High)`
-        );
-      } else {
-        core.setFailed(
-          `NTU Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
-          `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High)`
-        );
-      }
+      const failMessage = `NTU Security Scanner found issues:\n  - ${orchestrator.failReasons.join('\n  - ')}`;
+      core.setFailed(failMessage);
     } else {
       core.info('✅ Security scan completed successfully');
     }

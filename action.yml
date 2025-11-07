@@ -23,6 +23,18 @@ inputs:
     description: 'Fail the action if vulnerabilities are found'
     required: false
     default: 'false'
+  fail-on-vulnerability:
+    description: 'Fail the action if vulnerabilities are found (alias for fail-on-vulnerabilities)'
+    required: false
+    default: 'true'
+  fail-on-misconfiguration:
+    description: 'Fail the action if misconfigurations are found'
+    required: false
+    default: 'true'
+  fail-on-secret:
+    description: 'Fail the action if secrets are detected'
+    required: false
+    default: 'true'
 
 outputs:
   sarif-file:
