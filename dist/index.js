@@ -18997,6 +18997,16 @@ class CdxgenScanner {
     this.name = 'CDXgen SBOM Generator';
     this.binaryPath = null;
     this.trivyBinaryPath = null;
+    this.debugMode = process.env.DEBUG_MODE === 'true';
+  }
+
+  /**
+   * Log message only if debug mode is enabled
+   */
+  debugLog(message) {
+    if (this.debugMode) {
+      core.info(message);
+    }
   }
 
   async install() {
@@ -19058,24 +19068,33 @@ class CdxgenScanner {
         '--output', outputFilePath,
         targetDirectory
       ];
-      core.info(`📝 Running: ${this.binaryPath} ${args.join(' ')}`);
+      this.debugLog(`📝 Running: ${this.binaryPath} ${args.join(' ')}`);
 
       let stdoutOutput = '';
       let stderrOutput = '';
 
       const options = {
         listeners: {
-          // stdout: (data) => { stdoutOutput += data.toString(); },
-          // stderr: (data) => { stderrOutput += data.toString(); },
-          stdout: () => {},  // Suppress stdout
-          stderr: () => {}, 
+          stdout: (data) => {
+            stdoutOutput += data.toString();
+            if (this.debugMode) {
+              process.stdout.write(data);
+            }
+          },
+          stderr: (data) => {
+            stderrOutput += data.toString();
+            if (this.debugMode) {
+              process.stderr.write(data);
+            }
+          }
         },
         ignoreReturnCode: true,
         cwd: targetDirectory,
+        silent: !this.debugMode
       };
 
       const exitCode = await exec.exec(this.binaryPath, args, options);
-      core.info(`✅ SBOM generation completed with exit code: ${exitCode}`);
+      this.debugLog(`✅ SBOM generation completed with exit code: ${exitCode}`);
 
       if (!fs.existsSync(fullOutputPath)) {
         core.error(`❌ Output file not created: ${fullOutputPath}`);
@@ -19122,8 +19141,8 @@ class CdxgenScanner {
         sbomPath
       ];
 
-      console.log(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
-      // console.log(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
+      this.debugLog(`🛠️ Using Trivy binary at: ${this.trivyBinaryPath}`);
+      this.debugLog(`🧩 Running command: trivy ${trivyArgs.join(' ')}`);
 
       // ✅ Run trivy using full path (PATH not reliable in same process)
       await exec.exec(this.trivyBinaryPath, trivyArgs, {
@@ -19131,7 +19150,7 @@ class CdxgenScanner {
         listeners: {
           stdout: (data) => { stdoutData += data.toString(); }
         },
-        stderr: 'pipe'
+        silent: !this.debugMode
       });
 
       if (stdoutData.trim() === '') {
@@ -19161,12 +19180,12 @@ class CdxgenScanner {
         }
       });
 
-      core.info(`📊 Vulnerability Summary:`);
-      core.info(`   CRITICAL: ${countBySeverity.CRITICAL}`);
-      core.info(`   HIGH:     ${countBySeverity.HIGH}`);
-      core.info(`   MEDIUM:   ${countBySeverity.MEDIUM}`);
-      core.info(`   LOW:      ${countBySeverity.LOW}`);
-      core.info(`   TOTAL:    ${vulns.length}`);
+      this.debugLog(`📊 Vulnerability Summary:`);
+      this.debugLog(`   CRITICAL: ${countBySeverity.CRITICAL}`);
+      this.debugLog(`   HIGH:     ${countBySeverity.HIGH}`);
+      this.debugLog(`   MEDIUM:   ${countBySeverity.MEDIUM}`);
+      this.debugLog(`   LOW:      ${countBySeverity.LOW}`);
+      this.debugLog(`   TOTAL:    ${vulns.length}`);
 
       return {
         total: vulns.length,
