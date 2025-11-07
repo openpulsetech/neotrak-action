@@ -196,21 +196,39 @@ tags = ["mailjet", "apikey"]
 
   async runGitleaks(scanDir, reportPath, rulesPath) {
     // const args = ['detect', '--source', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner', '--verbose'];
-    const args = ['dir', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner', '--verbose'];
-    core.info(`🔍 Running Gitleaks: ${this.binaryPath} ${args.join(' ')}`);
+    const args = ['dir', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner'];
+
+    // Only add verbose flag in debug mode
+    if (this.debugMode) {
+      args.push('--verbose');
+    }
+
+    this.debugLog(`🔍 Running Gitleaks: ${this.binaryPath} ${args.join(' ')}`);
 
     let stdoutOutput = '';
     let stderrOutput = '';
 
     const options = {
       listeners: {
-        stdout: (data) => { stdoutOutput += data.toString(); },
-        stderr: (data) => { stderrOutput += data.toString(); },
+        stdout: (data) => {
+          stdoutOutput += data.toString();
+          if (this.debugMode) {
+            process.stdout.write(data);
+          }
+        },
+        stderr: (data) => {
+          stderrOutput += data.toString();
+          if (this.debugMode) {
+            process.stderr.write(data);
+          }
+        }
       },
       ignoreReturnCode: true,
+      silent: !this.debugMode
     };
 
     const exitCode = await exec.exec(this.binaryPath, args, options);
+    this.debugLog(`Gitleaks exit code: ${exitCode}`);
     this.debugLog(`Gitleaks STDOUT: ${stdoutOutput}`);
     if (stderrOutput && stderrOutput.trim()) {
       this.debugLog(`Gitleaks STDERR: ${stderrOutput}`);
