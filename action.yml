@@ -6,7 +6,7 @@ inputs:
   scan-type:
     description: 'Type of scan to perform (trivy, grype, snyk, semgrep, all)'
     required: false
-    default: 'all'
+    default: 'fs'
   severity:
     description: 'Severity levels to report (low, medium, high, critical)'
     required: false
