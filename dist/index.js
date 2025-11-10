@@ -45658,7 +45658,41 @@ class NTUSecurityOrchestrator {
     );
   }
 
-   createTableBorder(colWidths) {
+  /**
+   * Wrap text to fit within a column width
+   */
+  wrapText(text, width) {
+    if (!text || text.length <= width) {
+      return [text || ''];
+    }
+
+    const lines = [];
+    let currentLine = '';
+    const words = text.split(' ');
+
+    for (const word of words) {
+      if ((currentLine + word).length <= width) {
+        currentLine += (currentLine ? ' ' : '') + word;
+      } else {
+        if (currentLine) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          // Word is too long, split it
+          lines.push(word.substring(0, width));
+          currentLine = word.substring(width);
+        }
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines.length > 0 ? lines : [''];
+  }
+
+  createTableBorder(colWidths) {
     const top = '┌' + Object.values(colWidths).map(w => '─'.repeat(w)).join('┬') + '┐';
     const middle = '├' + Object.values(colWidths).map(w => '─'.repeat(w)).join('┼') + '┤';
     const bottom = '└' + Object.values(colWidths).map(w => '─'.repeat(w)).join('┴') + '┘';
@@ -45702,19 +45736,29 @@ class NTUSecurityOrchestrator {
       const vulnsOfSeverity = trivySbomResult.vulnerabilities.filter(
         v => (v.Severity || '').toUpperCase() === severity
       );
-      
+
       vulnsOfSeverity.forEach(vuln => {
-        const pkg = (vuln.PkgName || 'Unknown').substring(0, colWidths.package - 3);
-        const vulnId = (vuln.VulnerabilityID || 'N/A').substring(0, colWidths.vuln - 3);
         const emoji = severityEmojis[severity] || '';
-        const sev = (emoji + ' ' + severity).substring(0, colWidths.severity - 3);
-        const fixed = (vuln.FixedVersion || 'N/A').substring(0, colWidths.fixed - 3);
-        
-        const row = '│ ' + pkg.padEnd(colWidths.package - 2) + ' │ ' +
-                   vulnId.padEnd(colWidths.vuln - 2) + ' │ ' +
-                   sev.padEnd(colWidths.severity - 2) + ' │ ' +
-                   fixed.padEnd(colWidths.fixed - 2) + ' │';
-        core.info(row);
+
+        // Wrap text for each column
+        const pkgLines = this.wrapText(vuln.PkgName || 'Unknown', colWidths.package - 2);
+        const vulnLines = this.wrapText(vuln.VulnerabilityID || 'N/A', colWidths.vuln - 2);
+        const sevLines = this.wrapText(emoji + ' ' + severity, colWidths.severity - 2);
+        const fixedLines = this.wrapText(vuln.FixedVersion || 'N/A', colWidths.fixed - 2);
+
+        // Find the maximum number of lines needed
+        const maxLines = Math.max(pkgLines.length, vulnLines.length, sevLines.length, fixedLines.length);
+
+        // Print each line of the row
+        for (let i = 0; i < maxLines; i++) {
+          const pkg = (pkgLines[i] || '').padEnd(colWidths.package - 2);
+          const vulnId = (vulnLines[i] || '').padEnd(colWidths.vuln - 2);
+          const sev = (sevLines[i] || '').padEnd(colWidths.severity - 2);
+          const fixed = (fixedLines[i] || '').padEnd(colWidths.fixed - 2);
+
+          const row = '│ ' + pkg + ' │ ' + vulnId + ' │ ' + sev + ' │ ' + fixed + ' │';
+          core.info(row);
+        }
       });
     });
     
@@ -45757,19 +45801,29 @@ class NTUSecurityOrchestrator {
       const configsOfSeverity = configResult.misconfigurations.filter(
         c => (c.Severity || '').toUpperCase() === severity
       );
-      
+
       configsOfSeverity.forEach(config => {
-        const file = (config.File || 'Unknown').substring(0, colWidths.file - 3);
-        const issue = (config.Issue || config.Title || 'N/A').substring(0, colWidths.issue - 3);
         const emoji = severityEmojis[severity] || '';
-        const sev = (emoji + ' ' + severity).substring(0, colWidths.severity - 3);
-        const line = (config.Line || 'N/A').toString().substring(0, colWidths.line - 3);
-        
-        const row = '│ ' + file.padEnd(colWidths.file - 2) + ' │ ' +
-                   issue.padEnd(colWidths.issue - 2) + ' │ ' +
-                   sev.padEnd(colWidths.severity - 2) + ' │ ' +
-                   line.padEnd(colWidths.line - 2) + ' │';
-        core.info(row);
+
+        // Wrap text for each column
+        const fileLines = this.wrapText(config.File || 'Unknown', colWidths.file - 2);
+        const issueLines = this.wrapText(config.Issue || config.Title || 'N/A', colWidths.issue - 2);
+        const sevLines = this.wrapText(emoji + ' ' + severity, colWidths.severity - 2);
+        const lineLines = this.wrapText((config.Line || 'N/A').toString(), colWidths.line - 2);
+
+        // Find the maximum number of lines needed
+        const maxLines = Math.max(fileLines.length, issueLines.length, sevLines.length, lineLines.length);
+
+        // Print each line of the row
+        for (let i = 0; i < maxLines; i++) {
+          const file = (fileLines[i] || '').padEnd(colWidths.file - 2);
+          const issue = (issueLines[i] || '').padEnd(colWidths.issue - 2);
+          const sev = (sevLines[i] || '').padEnd(colWidths.severity - 2);
+          const line = (lineLines[i] || '').padEnd(colWidths.line - 2);
+
+          const row = '│ ' + file + ' │ ' + issue + ' │ ' + sev + ' │ ' + line + ' │';
+          core.info(row);
+        }
       });
     });
     
