@@ -52,8 +52,16 @@ class ConfigScanner {
 
             const reportPath = path.join(os.tmpdir(), `trivy-config-scan-${Date.now()}.json`);
 
-            // Build command string
+            // Build command string with exclusions
             let command = `${this.binaryPath} config --format json --output ${reportPath}`;
+
+            // Exclude node_modules and other common directories
+            command += ` --skip-dirs node_modules`;
+            command += ` --skip-dirs .git`;
+            command += ` --skip-dirs dist`;
+            command += ` --skip-dirs build`;
+            command += ` --skip-dirs target`;
+
             command += ` ${targetPath}`;
 
             this.debugLog(`📝 Running: ${command}`);
