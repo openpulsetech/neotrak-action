@@ -45528,7 +45528,16 @@ class NTUSecurityOrchestrator {
         });
         formData.append('sbomFile', fs.createReadStream(sbomPath));
         formData.append('displayName', process.env.DISPLAY_NAME || 'sbom');
-        formData.append('branchName', process.env.BRANCH_NAME || 'main');
+
+        // Get branch name from GitHub context
+        // For pull requests, use the head branch; otherwise use ref
+        const branchName = github.context.payload.pull_request?.head?.ref
+          || github.context.ref.replace('refs/heads/', '').replace('refs/tags/', '')
+          || process.env.BRANCH_NAME
+          || 'main';
+
+        core.info(`🌿 Running action on branch: ${branchName}`);
+        formData.append('branchName', branchName);
         if (process.env.CICD_SOURCE) formData.append('cicdSource', process.env.CICD_SOURCE);
         if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
 
@@ -45549,7 +45558,7 @@ class NTUSecurityOrchestrator {
             combinedScanRequest: 'JSON string (see below)',
             sbomFile: sbomPath,
             displayName: process.env.DISPLAY_NAME || 'sbom',
-            branchName: process.env.BRANCH_NAME || 'main',
+            branchName: branchName,
             cicdSource: process.env.CICD_SOURCE || 'not set',
             jobId: process.env.JOB_ID || 'not set'
           }, null, 2)}`);
@@ -45664,7 +45673,7 @@ class NTUSecurityOrchestrator {
     core.info('\n📋 Vulnerability Details:\n');
     
     const colWidths = {
-      package: 35,
+      package: 50,
       vuln: 22,
       severity: 12,
       fixed: 18
@@ -45720,7 +45729,7 @@ class NTUSecurityOrchestrator {
     core.info('\n📋 Misconfiguration Details:\n');
     
     const colWidths = {
-      file: 30,
+      file: 50,
       issue: 35,
       severity: 12,
       line: 10
