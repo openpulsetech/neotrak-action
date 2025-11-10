@@ -45673,7 +45673,7 @@ class NTUSecurityOrchestrator {
     core.info('\n📋 Vulnerability Details:\n');
     
     const colWidths = {
-      package: 55,
+      package: 45,
       vuln: 22,
       severity: 14,
       fixed: 25
