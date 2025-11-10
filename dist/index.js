@@ -45673,10 +45673,10 @@ class NTUSecurityOrchestrator {
     core.info('\n📋 Vulnerability Details:\n');
     
     const colWidths = {
-      package: 55,
-      vuln: 22,
-      severity: 14,
-      fixed: 25
+      package: 65,
+      vuln: 25,
+      severity: 15,
+      fixed: 45
     };
     
     const borders = this.createTableBorder(colWidths);
@@ -45729,10 +45729,10 @@ class NTUSecurityOrchestrator {
     core.info('\n📋 Misconfiguration Details:\n');
     
     const colWidths = {
-      file: 50,
-      issue: 35,
-      severity: 12,
-      line: 10
+      file: 60,
+      issue: 45,
+      severity: 15,
+      line: 12
     };
     
     const borders = this.createTableBorder(colWidths);
