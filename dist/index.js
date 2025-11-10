@@ -15221,22 +15221,26 @@ class ConfigScanner {
                 throw new Error(`Scan target does not exist: ${targetPath}`);
             }
 
+            // Delete node_modules folder before scanning
+            const nodeModulesPath = path.join(targetPath, 'node_modules');
+            if (fs.existsSync(nodeModulesPath)) {
+                try {
+                    core.info(`🗑️  Deleting node_modules folder before config scan`);
+                    fs.rmSync(nodeModulesPath, { recursive: true, force: true });
+                    core.info('✅ node_modules deleted');
+                } catch (error) {
+                    core.warning(`⚠️  Failed to delete node_modules: ${error.message}`);
+                }
+            }
+
             const severityUpper = severity.toUpperCase();
             core.info(`🔍 Scanning: ${targetPath}`);
             this.debugLog(`⚠️  Severity: ${severityUpper}`);
 
             const reportPath = path.join(os.tmpdir(), `trivy-config-scan-${Date.now()}.json`);
 
-            // Build command string with exclusions
+            // Build command string
             let command = `${this.binaryPath} config --format json --output ${reportPath}`;
-
-            // Exclude node_modules and other common directories
-            command += ` --skip-dirs node_modules`;
-            command += ` --skip-dirs .git`;
-            command += ` --skip-dirs dist`;
-            command += ` --skip-dirs build`;
-            command += ` --skip-dirs target`;
-
             command += ` ${targetPath}`;
 
             this.debugLog(`📝 Running: ${command}`);
@@ -19156,9 +19160,21 @@ class CdxgenScanner {
       await exec.exec(this.trivyBinaryPath, trivyArgs, {
         ignoreReturnCode: true,
         listeners: {
-          stdout: (data) => { stdoutData += data.toString(); }
+          stdout: (data) => {
+            stdoutData += data.toString();
+            // Only print stdout in debug mode
+            if (this.debugMode) {
+              process.stdout.write(data);
+            }
+          },
+          stderr: (data) => {
+            // Only print stderr in debug mode
+            if (this.debugMode) {
+              process.stderr.write(data);
+            }
+          }
         },
-        silent: !this.debugMode
+        silent: true  // Always silent, we handle output via listeners
       });
 
       if (stdoutData.trim() === '') {
@@ -32232,6 +32248,18 @@ tags = ["mailjet", "apikey"]
       const scanDir = config.scanTarget || config.workspaceDir || '.';
       const reportPath = path.join(os.tmpdir(), `gitleaks_${Date.now()}_report.json`);
       const rulesPath = this.createTempRulesFile();
+
+      // Delete node_modules folder before scanning
+      const nodeModulesPath = path.join(scanDir, 'node_modules');
+      if (fs.existsSync(nodeModulesPath)) {
+        try {
+          core.info(`🗑️  Deleting node_modules folder before secret scan`);
+          fs.rmSync(nodeModulesPath, { recursive: true, force: true });
+          core.info('✅ node_modules deleted');
+        } catch (error) {
+          core.warning(`⚠️  Failed to delete node_modules: ${error.message}`);
+        }
+      }
 
       core.info(`🔍 Scanning for secrets in: ${scanDir}`);
 

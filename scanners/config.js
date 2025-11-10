@@ -46,22 +46,26 @@ class ConfigScanner {
                 throw new Error(`Scan target does not exist: ${targetPath}`);
             }
 
+            // Delete node_modules folder before scanning
+            const nodeModulesPath = path.join(targetPath, 'node_modules');
+            if (fs.existsSync(nodeModulesPath)) {
+                try {
+                    core.info(`🗑️  Deleting node_modules folder before config scan`);
+                    fs.rmSync(nodeModulesPath, { recursive: true, force: true });
+                    core.info('✅ node_modules deleted');
+                } catch (error) {
+                    core.warning(`⚠️  Failed to delete node_modules: ${error.message}`);
+                }
+            }
+
             const severityUpper = severity.toUpperCase();
             core.info(`🔍 Scanning: ${targetPath}`);
             this.debugLog(`⚠️  Severity: ${severityUpper}`);
 
             const reportPath = path.join(os.tmpdir(), `trivy-config-scan-${Date.now()}.json`);
 
-            // Build command string with exclusions
+            // Build command string
             let command = `${this.binaryPath} config --format json --output ${reportPath}`;
-
-            // Exclude node_modules and other common directories
-            command += ` --skip-dirs node_modules`;
-            command += ` --skip-dirs .git`;
-            command += ` --skip-dirs dist`;
-            command += ` --skip-dirs build`;
-            command += ` --skip-dirs target`;
-
             command += ` ${targetPath}`;
 
             this.debugLog(`📝 Running: ${command}`);

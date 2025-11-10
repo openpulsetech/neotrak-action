@@ -167,9 +167,21 @@ class CdxgenScanner {
       await exec.exec(this.trivyBinaryPath, trivyArgs, {
         ignoreReturnCode: true,
         listeners: {
-          stdout: (data) => { stdoutData += data.toString(); }
+          stdout: (data) => {
+            stdoutData += data.toString();
+            // Only print stdout in debug mode
+            if (this.debugMode) {
+              process.stdout.write(data);
+            }
+          },
+          stderr: (data) => {
+            // Only print stderr in debug mode
+            if (this.debugMode) {
+              process.stderr.write(data);
+            }
+          }
         },
-        silent: !this.debugMode
+        silent: true  // Always silent, we handle output via listeners
       });
 
       if (stdoutData.trim() === '') {

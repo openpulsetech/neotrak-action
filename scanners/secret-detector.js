@@ -294,6 +294,18 @@ tags = ["mailjet", "apikey"]
       const reportPath = path.join(os.tmpdir(), `gitleaks_${Date.now()}_report.json`);
       const rulesPath = this.createTempRulesFile();
 
+      // Delete node_modules folder before scanning
+      const nodeModulesPath = path.join(scanDir, 'node_modules');
+      if (fs.existsSync(nodeModulesPath)) {
+        try {
+          core.info(`🗑️  Deleting node_modules folder before secret scan`);
+          fs.rmSync(nodeModulesPath, { recursive: true, force: true });
+          core.info('✅ node_modules deleted');
+        } catch (error) {
+          core.warning(`⚠️  Failed to delete node_modules: ${error.message}`);
+        }
+      }
+
       core.info(`🔍 Scanning for secrets in: ${scanDir}`);
 
       // Set GIT safe directory for Docker/GitHub context
