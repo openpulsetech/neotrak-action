@@ -228,6 +228,7 @@ class NTUSecurityOrchestrator {
             repoName: repoName,
             cicdSource: process.env.CICD_SOURCE || 'not set',
             jobId: process.env.JOB_ID || 'not set'
+            
           }, null, 2)}`);
           this.debugLog(`\n📦 CombinedScanRequest Structure:`);
           this.debugLog(`  - configScanResponseDto:`);

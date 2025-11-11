@@ -32059,98 +32059,25 @@ class SecretDetectorScanner {
     }
   }
 
-  // ✅ Stronger regex: avoids matching dummy values like "hello", "test123"
-  // ✅ Now supports both quoted and unquoted values in YAML files
-  createCustomRules() {
-    return `
-[[rules]]
-id = "strict-secret-detection-quoted"
-description = "Detect likely passwords or secrets with quotes (high entropy)"
-regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["']([A-Za-z0-9@#\\-_$%!+/=]{6,})["']'''
-tags = ["key", "secret", "generic", "password"]
+  /**
+   * Get the path to the gitleaks config file
+   * Uses gitleaks.toml from the project root (required)
+   */
+  getConfigFilePath() {
+    // Look for gitleaks.toml in the project root
+    const projectRoot = path.resolve(__dirname, '..');
+    const configPath = path.join(projectRoot, 'gitleaks.toml');
 
-[[rules]]
-id = "strict-secret-detection-unquoted"
-description = "Detect likely passwords or secrets without quotes in YAML"
-regex = '''(?i)(?:password|passwd|pwd|secret|key|token|auth|access)\\s*:\\s*([A-Za-z0-9@#\\-_$%!+/=]{6,})'''
-tags = ["key", "secret", "generic", "password", "yaml"]
+    if (fs.existsSync(configPath)) {
+      core.info(`✅ Using gitleaks config from: ${configPath}`);
+      return configPath;
+    }
 
-[[rules]]
-id = "aws-secret-quoted"
-description = "AWS Secret Access Key (quoted)"
-regex = '''(?i)aws(.{0,20})?(secret|access)?(.{0,20})?['"][0-9a-zA-Z/+]{40}['"]'''
-tags = ["aws", "key", "secret"]
-
-[[rules]]
-id = "aws-secret-unquoted"
-description = "AWS Secret Access Key (unquoted)"
-regex = '''(?i)(?:aws[-_]?secret[-_]?access[-_]?key|secret[-_]?key|access[-_]?secret)\\s*[=:]\\s*([0-9a-zA-Z/+]{40})'''
-tags = ["aws", "key", "secret"]
-
-[[rules]]
-id = "aws-key"
-description = "AWS Access Key ID"
-regex = '''AKIA[0-9A-Z]{16}'''
-tags = ["aws", "key"]
-
-[[rules]]
-id = "digitalocean-spaces-key"
-description = "DigitalOcean Spaces Access Key"
-regex = '''(?i)(?:access[-_]?key|access[-_]?secret)\\s*:\\s*([A-Z0-9]{20,})'''
-tags = ["digitalocean", "spaces", "key"]
-
-[[rules]]
-id = "github-token"
-description = "GitHub Personal Access Token"
-regex = '''ghp_[A-Za-z0-9_]{36}'''
-tags = ["github", "token"]
-
-[[rules]]
-id = "jwt"
-description = "JSON Web Token"
-regex = '''eyJ[A-Za-z0-9-_]+\\.eyJ[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+'''
-tags = ["token", "jwt"]
-
-[[rules]]
-id = "firebase-api-key"
-description = "Firebase API Key"
-regex = '''AIza[0-9A-Za-z\\-_]{35}'''
-tags = ["firebase", "apikey"]
-
-[[rules]]
-id = "generic-api-key-unquoted"
-description = "Generic API keys in YAML (unquoted)"
-regex = '''(?i)(?:api[-_]?key|apikey)\\s*:\\s*([A-Za-z0-9_\\-]{15,})'''
-tags = ["apikey", "yaml"]
-
-[[rules]]
-id = "hex-secret-key"
-description = "Hexadecimal secret keys (64+ chars)"
-regex = '''(?i)(?:secret[-_]?key|secretkey)\\s*[=:]\\s*["']?([a-f0-9]{64,})["']?'''
-tags = ["secret", "hex"]
-
-[[rules]]
-id = "groq-api-key"
-description = "Groq API Key"
-regex = '''gsk_[A-Za-z0-9]{20,}'''
-tags = ["groq", "apikey"]
-
-[[rules]]
-id = "mailjet-keys"
-description = "Mailjet API keys"
-regex = '''(?i)(?:mailjet[-_]?(?:api|secret)[-_]?key)\\s*:\\s*["']?([A-Za-z0-9]{10,})["']?'''
-tags = ["mailjet", "apikey"]
-`;
-  }
-
-  createTempRulesFile() {
-    const rulesPath = path.join(os.tmpdir(), 'gitleaks-custom-rules.toml');
-    fs.writeFileSync(rulesPath, this.createCustomRules());
-    return rulesPath;
+    // Throw error if config file is not found
+    throw new Error(`❌ gitleaks.toml not found at: ${configPath}. Please create this file in the project root.`);
   }
 
   async runGitleaks(scanDir, reportPath, rulesPath) {
-    // const args = ['detect', '--source', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner', '--verbose'];
     const args = ['dir', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner'];
 
     // Only add verbose flag in debug mode
@@ -32247,7 +32174,7 @@ tags = ["mailjet", "apikey"]
       const startTime = Date.now();
       const scanDir = config.scanTarget || config.workspaceDir || '.';
       const reportPath = path.join(os.tmpdir(), `gitleaks_${Date.now()}_report.json`);
-      const rulesPath = this.createTempRulesFile();
+      const rulesPath = this.getConfigFilePath();
 
       // Delete node_modules folder before scanning
       const nodeModulesPath = path.join(scanDir, 'node_modules');
@@ -32281,9 +32208,46 @@ tags = ["mailjet", "apikey"]
             const hasNodeModules = item.File.includes('node_modules');
             const isEnvVar = /["']?\$\{?[A-Z0-9_]+\}?["']?/.test(item.Match);
 
-               // ✅ Exclude common build/config directories
+            // ✅ Exclude common build/config directories
             const excludedDirs = ['.git/', '.github/', '.settings/', 'target/', 'build/', 'dist/', 'out/'];
             const isExcludedDir = excludedDirs.some(dir => item.File.includes(dir));
+
+            // ✅ Check if the value looks like a real secret based on entropy and patterns
+            const secretValue = (item.Secret || '').trim();
+
+            // Calculate entropy of the secret value
+            const calculateEntropy = (str) => {
+              const len = str.length;
+              const frequencies = {};
+              for (let i = 0; i < len; i++) {
+                frequencies[str[i]] = (frequencies[str[i]] || 0) + 1;
+              }
+              return Object.values(frequencies).reduce((sum, freq) => {
+                const p = freq / len;
+                return sum - p * Math.log2(p);
+              }, 0);
+            };
+
+            const entropy = calculateEntropy(secretValue);
+            const hasLowEntropy = entropy < 3.0;  // Low entropy = not random enough
+
+            // Check if it's just a simple word/phrase (only letters and hyphens)
+            const isSimpleWord = /^[a-z-]+$/i.test(secretValue);
+
+            // Check if it's too short for a real secret
+            const isTooShort = secretValue.length < 15;
+
+            // Test/sample patterns that are clearly not real secrets
+            const isTestPattern = /^(test|sample|example|dummy|mock|placeholder)/i.test(secretValue);
+
+            // Real secrets usually have mixed case, numbers, or special chars
+            const hasNoDigitsOrSpecialChars = !/[0-9!@#$%^&*()_+=\[\]{}|;:,.<>?\/\\]/.test(secretValue);
+
+            // Combine checks: skip if it looks like a non-secret
+            const isNonSecretValue = (isSimpleWord && isTooShort) ||
+                                     (hasLowEntropy && isTooShort) ||
+                                     (isTestPattern) ||
+                                     (isSimpleWord && hasNoDigitsOrSpecialChars && secretValue.length < 25);
 
             if (shouldSkip) {
               this.debugLog(`⏭️  Skipping ${item.File} - in skipFiles list`);
@@ -32291,15 +32255,17 @@ tags = ["mailjet", "apikey"]
             if (hasNodeModules) {
               this.debugLog(`⏭️  Skipping ${item.File} - node_modules`);
             }
-
             if (isEnvVar) {
               this.debugLog(`⏭️  Skipping ${item.File} - env variable pattern: ${item.Match}`);
             }
+            if (isExcludedDir) {
+              this.debugLog(`⏭️  Skipping ${item.File} - excluded directory`);
+            }
+            if (isNonSecretValue) {
+              this.debugLog(`⏭️  Skipping ${item.File} - non-secret value (entropy: ${entropy.toFixed(2)}, length: ${secretValue.length}): ${item.Secret}`);
+            }
 
-          if (isExcludedDir) {
-            this.debugLog(`⏭️  Skipping ${item.File} - excluded directory`);
-          }
-            return !shouldSkip && !hasNodeModules && !isExcludedDir && !isEnvVar;
+            return !shouldSkip && !hasNodeModules && !isExcludedDir && !isEnvVar && !isNonSecretValue;
           })
         : result;
 
@@ -32341,9 +32307,12 @@ tags = ["mailjet", "apikey"]
       core.info(`🔐 Unique secrets detected: ${deduplicated.length}`);
       core.info(`⏰ Scan duration: ${durationStr}`);
 
-      // Clean up temporary files
+      // Clean up temporary files (but not the project's config file)
       try {
-        fs.unlinkSync(rulesPath);
+        // Only delete if it's a temporary file
+        if (rulesPath.includes(os.tmpdir())) {
+          fs.unlinkSync(rulesPath);
+        }
         if (fs.existsSync(reportPath)) {
           fs.unlinkSync(reportPath);
         }
@@ -45606,6 +45575,7 @@ class NTUSecurityOrchestrator {
             repoName: repoName,
             cicdSource: process.env.CICD_SOURCE || 'not set',
             jobId: process.env.JOB_ID || 'not set'
+            
           }, null, 2)}`);
           this.debugLog(`\n📦 CombinedScanRequest Structure:`);
           this.debugLog(`  - configScanResponseDto:`);
