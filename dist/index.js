@@ -45572,8 +45572,16 @@ class NTUSecurityOrchestrator {
           || process.env.BRANCH_NAME
           || 'main';
 
+        // Get repository name from GitHub context
+        const repoName = github.context.payload.repository?.name
+          || github.context.repo.repo
+          || process.env.GITHUB_REPOSITORY?.split('/')[1]
+          || 'unknown-repo';
+
         core.info(`🌿 Running action on branch: ${branchName}`);
+        core.info(`📦 Repository name: ${repoName}`);
         formData.append('branchName', branchName);
+        // formData.append('repoName', repoName);
         if (process.env.CICD_SOURCE) formData.append('cicdSource', process.env.CICD_SOURCE);
         if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
 
@@ -45595,6 +45603,7 @@ class NTUSecurityOrchestrator {
             sbomFile: sbomPath,
             displayName: process.env.DISPLAY_NAME || 'sbom',
             branchName: branchName,
+            repoName: repoName,
             cicdSource: process.env.CICD_SOURCE || 'not set',
             jobId: process.env.JOB_ID || 'not set'
           }, null, 2)}`);
