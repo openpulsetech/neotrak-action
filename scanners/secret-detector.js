@@ -250,67 +250,24 @@ class SecretDetectorScanner {
       // Log all secrets before filtering
       core.info(`📊 Total secrets from Gitleaks: ${Array.isArray(result) ? result.length : 0}`);
 
-      // ⚠️ TEMPORARILY DISABLED - Filtering logic commented out for debugging
-      // const filtered = Array.isArray(result)
-      //   ? result.filter(item => {
-      //       const shouldSkip = skipFiles.includes(path.basename(item.File));
-      //       const hasNodeModules = item.File.includes('node_modules');
+      // No filtering - just deduplication based on all key fields
+      // Deduplicate secrets based on File + StartLine + EndLine + StartColumn + EndColumn + Secret
+      const deduplicated = Array.isArray(result)
+        ? result.reduce((acc, item) => {
+            // Create a unique key using all location fields and the secret value
+            const key = `${item.File}:${item.StartLine}:${item.EndLine}:${item.StartColumn}:${item.EndColumn}:${item.Secret}`;
 
-      //       // Only filter out plain env vars like ${VAR_NAME} or $VAR_NAME
-      //       // Do NOT filter Spring placeholders with default values like ${VAR:secret_value}
-      //       // Check if Match contains a colon (indicating a default value with a secret)
-      //       const hasDefaultValue = item.Match && item.Match.includes(':');
-      //       const isPlainEnvVar = !hasDefaultValue && /^["']?\$\{?[A-Z0-9_]+\}?["']?$/.test(item.Match);
+            if (!acc.seen.has(key)) {
+              acc.seen.add(key);
+              acc.results.push(item);
+            } else {
+              core.info(`⏭️  Skipping duplicate: ${item.File}:${item.StartLine} (${item.RuleID}) - already detected by another rule`);
+            }
+            return acc;
+          }, { seen: new Set(), results: [] }).results
+        : [];
 
-      //       // ✅ Exclude common build/config directories
-      //       const excludedDirs = ['.git/', '.github/', '.settings/', 'target/', 'build/', 'dist/', 'out/'];
-      //       const isExcludedDir = excludedDirs.some(dir => item.File.includes(dir));
-
-      //       const willFilter = shouldSkip || hasNodeModules || isExcludedDir || isPlainEnvVar;
-
-      //       if (willFilter) {
-      //         core.info(`⏭️  FILTERED: ${item.Secret?.substring(0, 20)}... in ${item.File}:${item.StartLine}`);
-      //         if (shouldSkip) {
-      //           core.info(`   Reason: File in skipFiles list`);
-      //         }
-      //         if (hasNodeModules) {
-      //           core.info(`   Reason: node_modules directory`);
-      //         }
-      //         if (isPlainEnvVar) {
-      //           core.info(`   Reason: Plain environment variable pattern - Match: ${item.Match}`);
-      //         }
-      //         if (isExcludedDir) {
-      //           core.info(`   Reason: Excluded directory`);
-      //         }
-      //       }
-
-      //       // Only filter out: skipFiles, node_modules, excluded directories, and plain env variables
-      //       // Trust Gitleaks config to handle entropy and pattern matching
-      //       return !shouldSkip && !hasNodeModules && !isExcludedDir && !isPlainEnvVar;
-      //     })
-      //   : result;
-
-      // this.debugLog(`✅ Secrets after filtering: ${Array.isArray(filtered) ? filtered.length : 0}`);
-
-      // // ✅ Deduplicate secrets based on File + StartLine + Secret
-      // const deduplicated = Array.isArray(filtered)
-      //   ? filtered.reduce((acc, item) => {
-      //       const key = `${item.File}:${item.StartLine}:${item.Secret}`;
-      //       if (!acc.seen.has(key)) {
-      //         acc.seen.add(key);
-      //         acc.results.push(item);
-      //       } else {
-      //         this.debugLog(`⏭️  Skipping duplicate: ${item.File}:${item.StartLine} (${item.RuleID})`);
-      //       }
-      //       return acc;
-      //     }, { seen: new Set(), results: [] }).results
-      //   : [];
-
-      // this.debugLog(`✅ Secrets after deduplication: ${deduplicated.length}`);
-
-      // ⚠️ TEMPORARILY USING RAW RESULTS - No filtering or deduplication applied
-      const deduplicated = Array.isArray(result) ? result : [];
-      core.info(`✅ Using raw results (no filtering/deduplication): ${deduplicated.length}`);
+      core.info(`✅ Secrets after deduplication: ${deduplicated.length}`);
 
       const filteredSecrets = deduplicated.map(item => ({
         RuleID: item.RuleID || '',
