@@ -203,7 +203,7 @@ class NTUSecurityOrchestrator {
         core.info(`🌿 Running action on branch: ${branchName}`);
         core.info(`📦 Repository name: ${repoName}`);
         formData.append('branchName', branchName);
-        // formData.append('repoName', repoName);
+        formData.append('repoName', repoName);
         if (process.env.CICD_SOURCE) formData.append('cicdSource', process.env.CICD_SOURCE);
         if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
 
@@ -228,7 +228,7 @@ class NTUSecurityOrchestrator {
             repoName: repoName,
             cicdSource: process.env.CICD_SOURCE || 'not set',
             jobId: process.env.JOB_ID || 'not set'
-            
+
           }, null, 2)}`);
           this.debugLog(`\n📦 CombinedScanRequest Structure:`);
           this.debugLog(`  - configScanResponseDto:`);

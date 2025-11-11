@@ -247,6 +247,9 @@ class SecretDetectorScanner {
 
       const endTime = Date.now();
 
+      // Log all secrets before filtering
+      core.info(`📊 Total secrets from Gitleaks: ${Array.isArray(result) ? result.length : 0}`);
+
       const filtered = Array.isArray(result)
         ? result.filter(item => {
             const shouldSkip = skipFiles.includes(path.basename(item.File));
@@ -257,17 +260,22 @@ class SecretDetectorScanner {
             const excludedDirs = ['.git/', '.github/', '.settings/', 'target/', 'build/', 'dist/', 'out/'];
             const isExcludedDir = excludedDirs.some(dir => item.File.includes(dir));
 
-            if (shouldSkip) {
-              this.debugLog(`⏭️  Skipping ${item.File} - in skipFiles list`);
-            }
-            if (hasNodeModules) {
-              this.debugLog(`⏭️  Skipping ${item.File} - node_modules`);
-            }
-            if (isEnvVar) {
-              this.debugLog(`⏭️  Skipping ${item.File} - env variable pattern: ${item.Match}`);
-            }
-            if (isExcludedDir) {
-              this.debugLog(`⏭️  Skipping ${item.File} - excluded directory`);
+            const willFilter = shouldSkip || hasNodeModules || isExcludedDir || isEnvVar;
+
+            if (willFilter) {
+              core.info(`⏭️  FILTERED: ${item.Secret?.substring(0, 20)}... in ${item.File}:${item.StartLine}`);
+              if (shouldSkip) {
+                core.info(`   Reason: File in skipFiles list`);
+              }
+              if (hasNodeModules) {
+                core.info(`   Reason: node_modules directory`);
+              }
+              if (isEnvVar) {
+                core.info(`   Reason: Environment variable pattern - Match: ${item.Match}`);
+              }
+              if (isExcludedDir) {
+                core.info(`   Reason: Excluded directory`);
+              }
             }
 
             // Only filter out: skipFiles, node_modules, excluded directories, and env variables
