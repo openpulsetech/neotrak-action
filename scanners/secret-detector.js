@@ -257,43 +257,6 @@ class SecretDetectorScanner {
             const excludedDirs = ['.git/', '.github/', '.settings/', 'target/', 'build/', 'dist/', 'out/'];
             const isExcludedDir = excludedDirs.some(dir => item.File.includes(dir));
 
-            // ✅ Check if the value looks like a real secret based on entropy and patterns
-            const secretValue = (item.Secret || '').trim();
-
-            // Calculate entropy of the secret value
-            const calculateEntropy = (str) => {
-              const len = str.length;
-              const frequencies = {};
-              for (let i = 0; i < len; i++) {
-                frequencies[str[i]] = (frequencies[str[i]] || 0) + 1;
-              }
-              return Object.values(frequencies).reduce((sum, freq) => {
-                const p = freq / len;
-                return sum - p * Math.log2(p);
-              }, 0);
-            };
-
-            const entropy = calculateEntropy(secretValue);
-            const hasLowEntropy = entropy < 3.0;  // Low entropy = not random enough
-
-            // Check if it's just a simple word/phrase (only letters and hyphens)
-            const isSimpleWord = /^[a-z-]+$/i.test(secretValue);
-
-            // Check if it's too short for a real secret
-            const isTooShort = secretValue.length < 15;
-
-            // Test/sample patterns that are clearly not real secrets
-            const isTestPattern = /^(test|sample|example|dummy|mock|placeholder)/i.test(secretValue);
-
-            // Real secrets usually have mixed case, numbers, or special chars
-            const hasNoDigitsOrSpecialChars = !/[0-9!@#$%^&*()_+=\[\]{}|;:,.<>?\/\\]/.test(secretValue);
-
-            // Combine checks: skip if it looks like a non-secret
-            const isNonSecretValue = (isSimpleWord && isTooShort) ||
-                                     (hasLowEntropy && isTooShort) ||
-                                     (isTestPattern) ||
-                                     (isSimpleWord && hasNoDigitsOrSpecialChars && secretValue.length < 25);
-
             if (shouldSkip) {
               this.debugLog(`⏭️  Skipping ${item.File} - in skipFiles list`);
             }
@@ -306,11 +269,10 @@ class SecretDetectorScanner {
             if (isExcludedDir) {
               this.debugLog(`⏭️  Skipping ${item.File} - excluded directory`);
             }
-            if (isNonSecretValue) {
-              this.debugLog(`⏭️  Skipping ${item.File} - non-secret value (entropy: ${entropy.toFixed(2)}, length: ${secretValue.length}): ${item.Secret}`);
-            }
 
-            return !shouldSkip && !hasNodeModules && !isExcludedDir && !isEnvVar && !isNonSecretValue;
+            // Only filter out: skipFiles, node_modules, excluded directories, and env variables
+            // Trust Gitleaks config to handle entropy and pattern matching
+            return !shouldSkip && !hasNodeModules && !isExcludedDir && !isEnvVar;
           })
         : result;
 
