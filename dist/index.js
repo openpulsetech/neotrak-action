@@ -45427,7 +45427,8 @@ class SecurityOrchestrator {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const apiUrl = `https://dev.neoTrak.io/open-pulse/project/upload-all/${projectId}`;
+        const apiEndpoint = core.getInput('api_endpoint');
+        const apiUrl = `${apiEndpoint}/open-pulse/project/upload-all/${projectId}`;
         core.info(`📤 Preparing upload to: ${apiUrl} (Attempt ${attempt}/${maxRetries})`);
 
         if (attempt > 1) {
