@@ -10,7 +10,7 @@ const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 
-class NTUSecurityOrchestrator {
+class SecurityOrchestrator {
   constructor() {
     this.scanners = [];
     this.results = {
@@ -55,7 +55,7 @@ class NTUSecurityOrchestrator {
    * Initialize all scanners
    */
   async initializeScanners() {
-    core.startGroup('🔧 NTU Security Scanner Setup');
+    core.startGroup('🔧 neotrak Scanner Setup');
 
     for (const scanner of this.scanners) {
       try {
@@ -74,7 +74,7 @@ class NTUSecurityOrchestrator {
    * Run all registered scanners
    */
   async runScans() {
-    core.startGroup('🔍 NTU Security Scan');
+    core.startGroup('🔍 neotrak Scan');
 
     const scanType = core.getInput('scan-type') || 'fs';
     const scanTarget = core.getInput('scan-target') || '.';
@@ -573,7 +573,7 @@ class NTUSecurityOrchestrator {
    * Display consolidated results
    */
   displayResults() {
-    core.startGroup('📊 NTU Security Scan Results');
+    core.startGroup('📊 neotrak Scan Results');
 
     core.info('='.repeat(50));
     core.info('CONSOLIDATED VULNERABILITY REPORT');
@@ -592,7 +592,7 @@ class NTUSecurityOrchestrator {
       // Display vulnerability details in pretty table format
       this.displayVulnerabilityTable(trivySbomResult);
     } else {
-      core.info('   ⚠️ No Trivy results found.');
+      core.info('   ⚠️ No vulnerability scan results found.');
     }
 
     core.info('='.repeat(50));
@@ -672,7 +672,7 @@ class NTUSecurityOrchestrator {
         });
       }
 
-      const comment = `## ${emoji} NTU Security Scan Report
+      const comment = `## ${emoji} Security Scan Report
 
 **Status:** ${status}
 
@@ -690,7 +690,7 @@ ${this.results.total > 0 ?
           '✨ No security vulnerabilities detected!'}
 
 ---
-*Powered by NTU Security Scanner*`;
+*Security Scan Complete*`;
 
       await octokit.rest.issues.createComment({
         ...context.repo,
@@ -754,7 +754,7 @@ ${this.results.total > 0 ?
 
 async function run() {
   try {
-    const orchestrator = new NTUSecurityOrchestrator();
+    const orchestrator = new SecurityOrchestrator();
 
     // Register scanners
     orchestrator.registerScanner(trivyScanner);
@@ -794,14 +794,14 @@ async function run() {
 
     // Check if should fail
     if (orchestrator.shouldFail()) {
-      const failMessage = `NTU Security Scanner found issues:\n  - ${orchestrator.failReasons.join('\n  - ')}`;
+      const failMessage = `Security Scanner found issues:\n  - ${orchestrator.failReasons.join('\n  - ')}`;
       core.setFailed(failMessage);
     } else {
       core.info('✅ Security scan completed successfully');
     }
 
   } catch (error) {
-    core.setFailed(`NTU Security scan failed: ${error.message}`);
+    core.setFailed(`Security scan failed: ${error.message}`);
   }
 }
 

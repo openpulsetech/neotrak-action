@@ -15182,8 +15182,8 @@ const path = __webpack_require__(6928);
 
 class ConfigScanner {
     constructor() {
-        this.name = 'Trivy config Scanner';
-        this.binaryPath = null; // Path to Trivy binary
+        this.name = 'Config Scanner';
+        this.binaryPath = null; // Path to scanner binary
         this.debugMode = process.env.DEBUG_MODE === 'true';
     }
 
@@ -15199,11 +15199,11 @@ class ConfigScanner {
     async install() {
         const trivyInstaller = __webpack_require__(3513);
         if (typeof trivyInstaller.install === 'function') {
-            core.info('📦 Installing Trivy for Config Scanner using Trivy scanner installer...');
+            core.info('📦 Installing Config Scanner...');
             this.binaryPath = await trivyInstaller.install(); // Should return full binary path
-            core.info(`🛠️ Trivy binary path: ${this.binaryPath}`);
+            core.info(`🛠️ Scanner binary path: ${this.binaryPath}`);
         } else {
-            core.info('ℹ️ Skipping install — assuming Trivy is already installed.');
+            core.info('ℹ️ Skipping install — assuming scanner is already installed.');
             this.binaryPath = 'trivy'; // fallback
         }
     }
@@ -15261,7 +15261,7 @@ class ConfigScanner {
                     this.debugLog(`Output: ${output}`);
                 }
             } catch (error) {
-                // execSync throws on non-zero exit code, but that's okay for Trivy
+                // execSync throws on non-zero exit code, but that's okay for scanner
                 if (error.stdout) {
                     this.debugLog(`Stdout: ${error.stdout}`);
                 }
@@ -15273,7 +15273,7 @@ class ConfigScanner {
 
             if (!fs.existsSync(reportPath)) {
                 core.error(`❌ Output file was not created: ${reportPath}`);
-                throw new Error('Trivy did not produce output file');
+                throw new Error('Config scanner did not produce output file');
             }
 
             const results = this.parseResults(reportPath);
@@ -15283,7 +15283,7 @@ class ConfigScanner {
             return results;
 
         } catch (error) {
-            core.error(`❌ Trivy config scan failed: ${error.message}`);
+            core.error(`❌ Config scan failed: ${error.message}`);
             core.debug(error.stack);
             throw error;
         }
@@ -15414,7 +15414,7 @@ class ConfigScanner {
             };
 
         } catch (err) {
-            core.error(`❌ Failed to parse Trivy results: ${err.message}`);
+            core.error(`❌ Failed to parse scan results: ${err.message}`);
             return {
                 total: 0,
                 totalFiles: 0,
@@ -15754,7 +15754,7 @@ const SCANNER_BINARY = 'ntu-scanner-trivy';
 
 class TrivyScanner {
   constructor() {
-    this.name = 'Trivy Vulnerability Scanner';
+    this.name = 'Vulnerability Scanner';
     this.binaryPath = null;
     this.debugMode = process.env.DEBUG_MODE === 'true';
   }
@@ -15828,7 +15828,7 @@ class TrivyScanner {
       return this.binaryPath;
       
     } catch (error) {
-      throw new Error(`Failed to install Trivy: ${error.message}`);
+      throw new Error(`Failed to install vulnerability scanner: ${error.message}`);
     }
   }
 
@@ -15941,7 +15941,7 @@ class TrivyScanner {
         core.error(`❌ Output file was not created: ${jsonOutputPath}`);
         core.error(`Stdout: ${stdoutOutput}`);
         core.error(`Stderr: ${stderrOutput}`);
-        throw new Error('Trivy did not produce output file');
+        throw new Error('Scanner did not produce output file');
       }
       
       const results = this.parseResults(jsonOutputPath);
@@ -15958,7 +15958,7 @@ class TrivyScanner {
       return results;
       
     } catch (error) {
-      core.error(`❌ Trivy scan failed: ${error.message}`);
+      core.error(`❌ Vulnerability scan failed: ${error.message}`);
       core.debug(`Stack: ${error.stack}`);
       throw error;
     }
@@ -16057,7 +16057,7 @@ class TrivyScanner {
       const totalCount = criticalCount + highCount + mediumCount + lowCount;
       
       // Log scanner-specific results
-      core.info(`\n✨ Trivy Scan Complete:`);
+      core.info(`\n✨ Vulnerability Scan Complete:`);
       core.info(`   📊 Total: ${totalCount} vulnerabilities`);
       core.info(`   🔴 Critical: ${criticalCount}`);
       core.info(`   🟠 High: ${highCount}`);
@@ -16074,7 +16074,7 @@ class TrivyScanner {
       };
       
     } catch (error) {
-      core.error(`❌ Failed to parse Trivy results: ${error.message}`);
+      core.error(`❌ Failed to parse scan results: ${error.message}`);
       core.debug(`Stack: ${error.stack}`);
       return {
         total: 0,
@@ -19006,7 +19006,7 @@ const CDXGEN_BINARY = 'cdxgen';
 
 class CdxgenScanner {
   constructor() {
-    this.name = 'CDXgen SBOM Generator';
+    this.name = 'SBOM Generator';
     this.binaryPath = null;
     this.trivyBinaryPath = null;
     this.debugMode = process.env.DEBUG_MODE === 'true';
@@ -19112,12 +19112,12 @@ class CdxgenScanner {
         core.error(`❌ Output file not created: ${fullOutputPath}`);
         core.error(`Stdout: ${stdoutOutput}`);
         core.error(`Stderr: ${stderrOutput}`);
-        throw new Error('CDXgen did not generate SBOM output file');
+        throw new Error('SBOM generator did not generate output file');
       }
 
       return fullOutputPath;
     } catch (error) {
-      core.error(`❌ CDXgen SBOM generation failed: ${error.message}`);
+      core.error(`❌ SBOM generation failed: ${error.message}`);
       throw error;
     }
   }
@@ -19139,7 +19139,7 @@ class CdxgenScanner {
       // this.trivyBinaryPath = await this.installTrivy();
 
       if (!trivyScanner.binaryPath) {
-        core.info('🔧 Trivy not found, installing Trivy scanner in sbom...');
+        core.info('🔧 Scanner not found, installing vulnerability scanner...');
         await trivyScanner.install();
       }
       this.trivyBinaryPath = trivyScanner.binaryPath;
@@ -19224,7 +19224,7 @@ class CdxgenScanner {
     } catch (error) {
       core.error(`❌ Scan failed: ${error.message}`);
       // throw error;
-      core.info('➡️ Falling back to Trivy scanner...');
+      core.info('➡️ Falling back to vulnerability scanner...');
 
       // Fallback: call trivy.js scanner directly
       return await trivyScanner.scan(config);
@@ -31974,7 +31974,7 @@ const skipFiles = (/* unused pure expression or super */ null && ([
 
 class SecretDetectorScanner {
   constructor() {
-    this.name = 'Secret Detector (Gitleaks)';
+    this.name = 'Secret Detector';
     this.binaryPath = null;
     this.debugMode = process.env.DEBUG_MODE === 'true';
   }
@@ -31990,8 +31990,8 @@ class SecretDetectorScanner {
 
   async install() {
     try {
-      core.info(`📦 Installing Gitleaks ${GITLEAKS_VERSION}...`);
-      
+      core.info(`📦 Installing Secret Detector ${GITLEAKS_VERSION}...`);
+
       const platform = os.platform();
       const arch = os.arch() === 'x64' ? 'x64' : 'arm64';
       
@@ -32015,7 +32015,7 @@ class SecretDetectorScanner {
         throw new Error(`Unsupported platform: ${platform}`);
       }
 
-      core.debug(`Downloading Gitleaks from: ${downloadUrl}`);
+      core.debug(`Downloading Secret Detector from: ${downloadUrl}`);
 
       // Use @actions/tool-cache for reliable download and extraction
       const { downloadTool, extractTar, extractZip, cacheDir } = __webpack_require__(9358);
@@ -32036,7 +32036,7 @@ class SecretDetectorScanner {
       // Find the binary
       const binaryPath = path.join(extractedPath, binaryName);
       if (!fs.existsSync(binaryPath)) {
-        throw new Error(`Gitleaks binary not found at: ${binaryPath}`);
+        throw new Error(`Secret Detector binary not found at: ${binaryPath}`);
       }
 
       // Make binary executable (for Unix systems)
@@ -32052,15 +32052,15 @@ class SecretDetectorScanner {
       const binDir = path.dirname(this.binaryPath);
       process.env.PATH = `${binDir}:${process.env.PATH}`;
       
-      core.info(`✅ Gitleaks installed successfully at: ${this.binaryPath}`);
+      core.info(`✅ Secret Detector installed successfully at: ${this.binaryPath}`);
       return this.binaryPath;
     } catch (error) {
-      throw new Error(`Failed to install Gitleaks: ${error.message}`);
+      throw new Error(`Failed to install Secret Detector: ${error.message}`);
     }
   }
 
   /**
-   * Get the path to the gitleaks config file
+   * Get the path to the secret detector config file
    * Uses gitleaks.toml from the project root (required)
    */
   getConfigFilePath() {
@@ -32069,7 +32069,7 @@ class SecretDetectorScanner {
     const configPath = path.join(projectRoot, 'gitleaks.toml');
 
     if (fs.existsSync(configPath)) {
-      core.info(`✅ Using gitleaks config from: ${configPath}`);
+      core.info(`✅ Using secret detector config from: ${configPath}`);
       return configPath;
     }
 
@@ -32085,7 +32085,7 @@ class SecretDetectorScanner {
       args.push('--verbose');
     }
 
-    this.debugLog(`🔍 Running Gitleaks: ${this.binaryPath} ${args.join(' ')}`);
+    this.debugLog(`🔍 Running Secret Detector: ${this.binaryPath} ${args.join(' ')}`);
 
     let stdoutOutput = '';
     let stderrOutput = '';
@@ -32110,10 +32110,10 @@ class SecretDetectorScanner {
     };
 
     const exitCode = await exec.exec(this.binaryPath, args, options);
-    this.debugLog(`Gitleaks exit code: ${exitCode}`);
-    this.debugLog(`Gitleaks STDOUT: ${stdoutOutput}`);
+    this.debugLog(`Secret Detector exit code: ${exitCode}`);
+    this.debugLog(`Secret Detector STDOUT: ${stdoutOutput}`);
     if (stderrOutput && stderrOutput.trim()) {
-      this.debugLog(`Gitleaks STDERR: ${stderrOutput}`);
+      this.debugLog(`Secret Detector STDERR: ${stderrOutput}`);
     }
 
     return exitCode;
@@ -32128,7 +32128,7 @@ class SecretDetectorScanner {
           const report = JSON.parse(data);
           resolve(report.length ? report : "No secrets detected.");
         } catch (e) {
-          reject(new Error("Invalid JSON in gitleaks report."));
+          reject(new Error("Invalid JSON in secret detector report."));
         }
       });
     });
@@ -32203,7 +32203,7 @@ class SecretDetectorScanner {
       const endTime = Date.now();
 
       // Log all secrets before filtering
-      core.info(`📊 Total secrets from Gitleaks: ${Array.isArray(result) ? result.length : 0}`);
+      core.info(`📊 Total secrets detected: ${Array.isArray(result) ? result.length : 0}`);
 
       // No filtering - just deduplication based on all key fields
       // Deduplicate secrets based on File + StartLine + EndLine + StartColumn + EndColumn + Secret
@@ -45294,7 +45294,7 @@ const axios = __webpack_require__(9329);
 const index_FormData = __webpack_require__(737);
 const fs = __webpack_require__(9896);
 
-class NTUSecurityOrchestrator {
+class SecurityOrchestrator {
   constructor() {
     this.scanners = [];
     this.results = {
@@ -45339,7 +45339,7 @@ class NTUSecurityOrchestrator {
    * Initialize all scanners
    */
   async initializeScanners() {
-    core.startGroup('🔧 NTU Security Scanner Setup');
+    core.startGroup('🔧 neotrak Scanner Setup');
 
     for (const scanner of this.scanners) {
       try {
@@ -45358,7 +45358,7 @@ class NTUSecurityOrchestrator {
    * Run all registered scanners
    */
   async runScans() {
-    core.startGroup('🔍 NTU Security Scan');
+    core.startGroup('🔍 neotrak Scan');
 
     const scanType = core.getInput('scan-type') || 'fs';
     const scanTarget = core.getInput('scan-target') || '.';
@@ -45857,7 +45857,7 @@ class NTUSecurityOrchestrator {
    * Display consolidated results
    */
   displayResults() {
-    core.startGroup('📊 NTU Security Scan Results');
+    core.startGroup('📊 neotrak Scan Results');
 
     core.info('='.repeat(50));
     core.info('CONSOLIDATED VULNERABILITY REPORT');
@@ -45876,7 +45876,7 @@ class NTUSecurityOrchestrator {
       // Display vulnerability details in pretty table format
       this.displayVulnerabilityTable(trivySbomResult);
     } else {
-      core.info('   ⚠️ No Trivy results found.');
+      core.info('   ⚠️ No vulnerability scan results found.');
     }
 
     core.info('='.repeat(50));
@@ -45956,7 +45956,7 @@ class NTUSecurityOrchestrator {
         });
       }
 
-      const comment = `## ${emoji} NTU Security Scan Report
+      const comment = `## ${emoji} Security Scan Report
 
 **Status:** ${status}
 
@@ -45974,7 +45974,7 @@ ${this.results.total > 0 ?
           '✨ No security vulnerabilities detected!'}
 
 ---
-*Powered by NTU Security Scanner*`;
+*Security Scan Complete*`;
 
       await octokit.rest.issues.createComment({
         ...context.repo,
@@ -46038,7 +46038,7 @@ ${this.results.total > 0 ?
 
 async function run() {
   try {
-    const orchestrator = new NTUSecurityOrchestrator();
+    const orchestrator = new SecurityOrchestrator();
 
     // Register scanners
     orchestrator.registerScanner(trivyScanner);
@@ -46078,14 +46078,14 @@ async function run() {
 
     // Check if should fail
     if (orchestrator.shouldFail()) {
-      const failMessage = `NTU Security Scanner found issues:\n  - ${orchestrator.failReasons.join('\n  - ')}`;
+      const failMessage = `Security Scanner found issues:\n  - ${orchestrator.failReasons.join('\n  - ')}`;
       core.setFailed(failMessage);
     } else {
       core.info('✅ Security scan completed successfully');
     }
 
   } catch (error) {
-    core.setFailed(`NTU Security scan failed: ${error.message}`);
+    core.setFailed(`Security scan failed: ${error.message}`);
   }
 }
 

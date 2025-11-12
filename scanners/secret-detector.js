@@ -19,7 +19,7 @@ const skipFiles = [
 
 class SecretDetectorScanner {
   constructor() {
-    this.name = 'Secret Detector (Gitleaks)';
+    this.name = 'Secret Detector';
     this.binaryPath = null;
     this.debugMode = process.env.DEBUG_MODE === 'true';
   }
@@ -35,8 +35,8 @@ class SecretDetectorScanner {
 
   async install() {
     try {
-      core.info(`📦 Installing Gitleaks ${GITLEAKS_VERSION}...`);
-      
+      core.info(`📦 Installing Secret Detector ${GITLEAKS_VERSION}...`);
+
       const platform = os.platform();
       const arch = os.arch() === 'x64' ? 'x64' : 'arm64';
       
@@ -60,7 +60,7 @@ class SecretDetectorScanner {
         throw new Error(`Unsupported platform: ${platform}`);
       }
 
-      core.debug(`Downloading Gitleaks from: ${downloadUrl}`);
+      core.debug(`Downloading Secret Detector from: ${downloadUrl}`);
 
       // Use @actions/tool-cache for reliable download and extraction
       const { downloadTool, extractTar, extractZip, cacheDir } = require('@actions/tool-cache');
@@ -81,7 +81,7 @@ class SecretDetectorScanner {
       // Find the binary
       const binaryPath = path.join(extractedPath, binaryName);
       if (!fs.existsSync(binaryPath)) {
-        throw new Error(`Gitleaks binary not found at: ${binaryPath}`);
+        throw new Error(`Secret Detector binary not found at: ${binaryPath}`);
       }
 
       // Make binary executable (for Unix systems)
@@ -97,15 +97,15 @@ class SecretDetectorScanner {
       const binDir = path.dirname(this.binaryPath);
       process.env.PATH = `${binDir}:${process.env.PATH}`;
       
-      core.info(`✅ Gitleaks installed successfully at: ${this.binaryPath}`);
+      core.info(`✅ Secret Detector installed successfully at: ${this.binaryPath}`);
       return this.binaryPath;
     } catch (error) {
-      throw new Error(`Failed to install Gitleaks: ${error.message}`);
+      throw new Error(`Failed to install Secret Detector: ${error.message}`);
     }
   }
 
   /**
-   * Get the path to the gitleaks config file
+   * Get the path to the secret detector config file
    * Uses gitleaks.toml from the project root (required)
    */
   getConfigFilePath() {
@@ -114,7 +114,7 @@ class SecretDetectorScanner {
     const configPath = path.join(projectRoot, 'gitleaks.toml');
 
     if (fs.existsSync(configPath)) {
-      core.info(`✅ Using gitleaks config from: ${configPath}`);
+      core.info(`✅ Using secret detector config from: ${configPath}`);
       return configPath;
     }
 
@@ -130,7 +130,7 @@ class SecretDetectorScanner {
       args.push('--verbose');
     }
 
-    this.debugLog(`🔍 Running Gitleaks: ${this.binaryPath} ${args.join(' ')}`);
+    this.debugLog(`🔍 Running Secret Detector: ${this.binaryPath} ${args.join(' ')}`);
 
     let stdoutOutput = '';
     let stderrOutput = '';
@@ -155,10 +155,10 @@ class SecretDetectorScanner {
     };
 
     const exitCode = await exec.exec(this.binaryPath, args, options);
-    this.debugLog(`Gitleaks exit code: ${exitCode}`);
-    this.debugLog(`Gitleaks STDOUT: ${stdoutOutput}`);
+    this.debugLog(`Secret Detector exit code: ${exitCode}`);
+    this.debugLog(`Secret Detector STDOUT: ${stdoutOutput}`);
     if (stderrOutput && stderrOutput.trim()) {
-      this.debugLog(`Gitleaks STDERR: ${stderrOutput}`);
+      this.debugLog(`Secret Detector STDERR: ${stderrOutput}`);
     }
 
     return exitCode;
@@ -173,7 +173,7 @@ class SecretDetectorScanner {
           const report = JSON.parse(data);
           resolve(report.length ? report : "No secrets detected.");
         } catch (e) {
-          reject(new Error("Invalid JSON in gitleaks report."));
+          reject(new Error("Invalid JSON in secret detector report."));
         }
       });
     });
@@ -248,7 +248,7 @@ class SecretDetectorScanner {
       const endTime = Date.now();
 
       // Log all secrets before filtering
-      core.info(`📊 Total secrets from Gitleaks: ${Array.isArray(result) ? result.length : 0}`);
+      core.info(`📊 Total secrets detected: ${Array.isArray(result) ? result.length : 0}`);
 
       // No filtering - just deduplication based on all key fields
       // Deduplicate secrets based on File + StartLine + EndLine + StartColumn + EndColumn + Secret

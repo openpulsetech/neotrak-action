@@ -7,8 +7,8 @@ const path = require('path');
 
 class ConfigScanner {
     constructor() {
-        this.name = 'Trivy config Scanner';
-        this.binaryPath = null; // Path to Trivy binary
+        this.name = 'Config Scanner';
+        this.binaryPath = null; // Path to scanner binary
         this.debugMode = process.env.DEBUG_MODE === 'true';
     }
 
@@ -24,11 +24,11 @@ class ConfigScanner {
     async install() {
         const trivyInstaller = require('./trivy');
         if (typeof trivyInstaller.install === 'function') {
-            core.info('📦 Installing Trivy for Config Scanner using Trivy scanner installer...');
+            core.info('📦 Installing Config Scanner...');
             this.binaryPath = await trivyInstaller.install(); // Should return full binary path
-            core.info(`🛠️ Trivy binary path: ${this.binaryPath}`);
+            core.info(`🛠️ Scanner binary path: ${this.binaryPath}`);
         } else {
-            core.info('ℹ️ Skipping install — assuming Trivy is already installed.');
+            core.info('ℹ️ Skipping install — assuming scanner is already installed.');
             this.binaryPath = 'trivy'; // fallback
         }
     }
@@ -86,7 +86,7 @@ class ConfigScanner {
                     this.debugLog(`Output: ${output}`);
                 }
             } catch (error) {
-                // execSync throws on non-zero exit code, but that's okay for Trivy
+                // execSync throws on non-zero exit code, but that's okay for scanner
                 if (error.stdout) {
                     this.debugLog(`Stdout: ${error.stdout}`);
                 }
@@ -98,7 +98,7 @@ class ConfigScanner {
 
             if (!fs.existsSync(reportPath)) {
                 core.error(`❌ Output file was not created: ${reportPath}`);
-                throw new Error('Trivy did not produce output file');
+                throw new Error('Config scanner did not produce output file');
             }
 
             const results = this.parseResults(reportPath);
@@ -108,7 +108,7 @@ class ConfigScanner {
             return results;
 
         } catch (error) {
-            core.error(`❌ Trivy config scan failed: ${error.message}`);
+            core.error(`❌ Config scan failed: ${error.message}`);
             core.debug(error.stack);
             throw error;
         }
@@ -239,7 +239,7 @@ class ConfigScanner {
             };
 
         } catch (err) {
-            core.error(`❌ Failed to parse Trivy results: ${err.message}`);
+            core.error(`❌ Failed to parse scan results: ${err.message}`);
             return {
                 total: 0,
                 totalFiles: 0,

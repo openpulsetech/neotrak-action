@@ -11,7 +11,7 @@ const SCANNER_BINARY = 'ntu-scanner-trivy';
 
 class TrivyScanner {
   constructor() {
-    this.name = 'Trivy Vulnerability Scanner';
+    this.name = 'Vulnerability Scanner';
     this.binaryPath = null;
     this.debugMode = process.env.DEBUG_MODE === 'true';
   }
@@ -85,7 +85,7 @@ class TrivyScanner {
       return this.binaryPath;
       
     } catch (error) {
-      throw new Error(`Failed to install Trivy: ${error.message}`);
+      throw new Error(`Failed to install vulnerability scanner: ${error.message}`);
     }
   }
 
@@ -198,7 +198,7 @@ class TrivyScanner {
         core.error(`❌ Output file was not created: ${jsonOutputPath}`);
         core.error(`Stdout: ${stdoutOutput}`);
         core.error(`Stderr: ${stderrOutput}`);
-        throw new Error('Trivy did not produce output file');
+        throw new Error('Scanner did not produce output file');
       }
       
       const results = this.parseResults(jsonOutputPath);
@@ -215,7 +215,7 @@ class TrivyScanner {
       return results;
       
     } catch (error) {
-      core.error(`❌ Trivy scan failed: ${error.message}`);
+      core.error(`❌ Vulnerability scan failed: ${error.message}`);
       core.debug(`Stack: ${error.stack}`);
       throw error;
     }
@@ -314,7 +314,7 @@ class TrivyScanner {
       const totalCount = criticalCount + highCount + mediumCount + lowCount;
       
       // Log scanner-specific results
-      core.info(`\n✨ Trivy Scan Complete:`);
+      core.info(`\n✨ Vulnerability Scan Complete:`);
       core.info(`   📊 Total: ${totalCount} vulnerabilities`);
       core.info(`   🔴 Critical: ${criticalCount}`);
       core.info(`   🟠 High: ${highCount}`);
@@ -331,7 +331,7 @@ class TrivyScanner {
       };
       
     } catch (error) {
-      core.error(`❌ Failed to parse Trivy results: ${error.message}`);
+      core.error(`❌ Failed to parse scan results: ${error.message}`);
       core.debug(`Stack: ${error.stack}`);
       return {
         total: 0,

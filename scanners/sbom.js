@@ -13,7 +13,7 @@ const CDXGEN_BINARY = 'cdxgen';
 
 class CdxgenScanner {
   constructor() {
-    this.name = 'CDXgen SBOM Generator';
+    this.name = 'SBOM Generator';
     this.binaryPath = null;
     this.trivyBinaryPath = null;
     this.debugMode = process.env.DEBUG_MODE === 'true';
@@ -119,12 +119,12 @@ class CdxgenScanner {
         core.error(`❌ Output file not created: ${fullOutputPath}`);
         core.error(`Stdout: ${stdoutOutput}`);
         core.error(`Stderr: ${stderrOutput}`);
-        throw new Error('CDXgen did not generate SBOM output file');
+        throw new Error('SBOM generator did not generate output file');
       }
 
       return fullOutputPath;
     } catch (error) {
-      core.error(`❌ CDXgen SBOM generation failed: ${error.message}`);
+      core.error(`❌ SBOM generation failed: ${error.message}`);
       throw error;
     }
   }
@@ -146,7 +146,7 @@ class CdxgenScanner {
       // this.trivyBinaryPath = await this.installTrivy();
 
       if (!trivyScanner.binaryPath) {
-        core.info('🔧 Trivy not found, installing Trivy scanner in sbom...');
+        core.info('🔧 Scanner not found, installing vulnerability scanner...');
         await trivyScanner.install();
       }
       this.trivyBinaryPath = trivyScanner.binaryPath;
@@ -231,7 +231,7 @@ class CdxgenScanner {
     } catch (error) {
       core.error(`❌ Scan failed: ${error.message}`);
       // throw error;
-      core.info('➡️ Falling back to Trivy scanner...');
+      core.info('➡️ Falling back to vulnerability scanner...');
 
       // Fallback: call trivy.js scanner directly
       return await trivyScanner.scan(config);
