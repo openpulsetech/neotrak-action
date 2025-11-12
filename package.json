@@ -1,7 +1,8 @@
 {
     "name": "neotrak-security-scanner-action",
+    "name": "neotrak-security-scanner-action",
     "version": "1.0.0",
-    "description": "Neotrak enterprise security scanner for GitHub Actions",
+    "description": "neotrak enterprise security scanner for GitHub Actions",
     "main": "dist/index.js",
   "scripts": {
     "build": "webpack --mode production",
@@ -17,13 +18,15 @@
       "vulnerability-scanner",
       "container-security"
     ],
-    "author": "Neotrak Security Team",
+    "author": "neotrak Security Team",
     "license": "MIT",
     "dependencies": {
       "@actions/core": "^1.10.1",
       "@actions/exec": "^1.1.1",
       "@actions/github": "^6.0.0",
-      "@actions/tool-cache": "^2.0.1"
+      "@actions/tool-cache": "^2.0.1",
+      "axios": "^1.7.2",
+      "form-data": "^4.0.0"
     },
   "devDependencies": {
     "webpack": "^5.88.0",

@@ -3,7 +3,6 @@ const exec = require('@actions/exec');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
-//const axios = require('axios');
 
 const GITLEAKS_VERSION = 'v8.27.2';
 const GITLEAKS_BINARY = 'gitleaks';
@@ -20,14 +19,24 @@ const skipFiles = [
 
 class SecretDetectorScanner {
   constructor() {
-    this.name = 'Secret Detector (Gitleaks)';
+    this.name = 'Secret Detector';
     this.binaryPath = null;
+    this.debugMode = process.env.DEBUG_MODE === 'true';
+  }
+
+  /**
+   * Log message only if debug mode is enabled
+   */
+  debugLog(message) {
+    if (this.debugMode) {
+      core.info(message);
+    }
   }
 
   async install() {
     try {
-      core.info(`📦 Installing Gitleaks ${GITLEAKS_VERSION}...`);
-      
+      core.info(`📦 Installing Secret Detector ${GITLEAKS_VERSION}...`);
+
       const platform = os.platform();
       const arch = os.arch() === 'x64' ? 'x64' : 'arm64';
       
@@ -51,7 +60,7 @@ class SecretDetectorScanner {
         throw new Error(`Unsupported platform: ${platform}`);
       }
 
-      core.debug(`Downloading Gitleaks from: ${downloadUrl}`);
+      core.debug(`Downloading Secret Detector from: ${downloadUrl}`);
 
       // Use @actions/tool-cache for reliable download and extraction
       const { downloadTool, extractTar, extractZip, cacheDir } = require('@actions/tool-cache');
@@ -72,7 +81,7 @@ class SecretDetectorScanner {
       // Find the binary
       const binaryPath = path.join(extractedPath, binaryName);
       if (!fs.existsSync(binaryPath)) {
-        throw new Error(`Gitleaks binary not found at: ${binaryPath}`);
+        throw new Error(`Secret Detector binary not found at: ${binaryPath}`);
       }
 
       // Make binary executable (for Unix systems)
@@ -88,105 +97,70 @@ class SecretDetectorScanner {
       const binDir = path.dirname(this.binaryPath);
       process.env.PATH = `${binDir}:${process.env.PATH}`;
       
-      core.info(`✅ Gitleaks installed successfully at: ${this.binaryPath}`);
+      core.info(`✅ Secret Detector installed successfully at: ${this.binaryPath}`);
       return this.binaryPath;
     } catch (error) {
-      throw new Error(`Failed to install Gitleaks: ${error.message}`);
+      throw new Error(`Failed to install Secret Detector: ${error.message}`);
     }
   }
 
-  // ✅ Stronger regex: avoids matching dummy values like "hello", "test123"
-  createCustomRules() {
-    return `
-[[rules]]
-id = "spring-placeholder-with-secret"
-description = "Secret embedded as default value in Spring Boot property placeholder"
-regex = '''\\$\\{[A-Z0-9_]+:([A-Za-z0-9+/=_\\-]{20,})\\}'''
-tags = ["secret", "spring", "placeholder", "default-value"]
+  /**
+   * Get the path to the secret detector config file
+   * Uses gitleaks.toml from the project root (required)
+   */
+  getConfigFilePath() {
+    // Look for gitleaks.toml in the project root
+    const projectRoot = path.resolve(__dirname, '..');
+    const configPath = path.join(projectRoot, 'gitleaks.toml');
 
-[[rules]]
-id = "spring-placeholder-api-key"
-description = "API key patterns in Spring Boot placeholders"
-regex = '''(?i)\\$\\{[A-Z0-9_]*(?:API|KEY|TOKEN|SECRET)[A-Z0-9_]*:([A-Za-z0-9_\\-]{20,})\\}'''
-tags = ["apikey", "spring", "placeholder"]
+    if (fs.existsSync(configPath)) {
+      core.info(`✅ Using secret detector config from: ${configPath}`);
+      return configPath;
+    }
 
-[[rules]]
-id = "openai-groq-api-key"
-description = "OpenAI or Groq API Key"
-regex = '''(sk|gsk)_[A-Za-z0-9_\\-]{20,}'''
-tags = ["apikey", "openai", "groq"]
-
-[[rules]]
-id = "strict-secret-detection"
-description = "Detect likely passwords or secrets with high entropy"
-regex = '''(?i)(password|passwd|pwd|secret|key|token|auth|access)[\\s"']*[=:][\\s"']*["']([A-Za-z0-9@#\\-_$%!]{10,})["']'''
-tags = ["key", "secret", "generic", "password"]
-
-[[rules]]
-id = "aws-secret"
-description = "AWS Secret Access Key"
-regex = '''(?i)aws(.{0,20})?(secret|access)?(.{0,20})?['"][0-9a-zA-Z/+]{40}['"]'''
-tags = ["aws", "key", "secret"]
-
-[[rules]]
-id = "aws-key"
-description = "AWS Access Key ID"
-regex = '''AKIA[0-9A-Z]{16}'''
-tags = ["aws", "key"]
-
-[[rules]]
-id = "github-token"
-description = "GitHub Personal Access Token"
-regex = '''ghp_[A-Za-z0-9_]{36}'''
-tags = ["github", "token"]
-
-[[rules]]
-id = "jwt"
-description = "JSON Web Token"
-regex = '''eyJ[A-Za-z0-9-_]+\\.eyJ[A-Za-z0-9-_]+\\.[A-Za-z0-9-_]+'''
-tags = ["token", "jwt"]
-
-[[rules]]
-id = "firebase-api-key"
-description = "Firebase API Key"
-regex = '''AIza[0-9A-Za-z\\-_]{35}'''
-tags = ["firebase", "apikey"]
-
-[[rules]]
-id = "gitlab-token"
-description = "GitLab Personal Access Token"
-regex = '''glpat-[0-9a-zA-Z\\-_]{20,}'''
-tags = ["gitlab", "token"]
-`;
-  }
-
-  createTempRulesFile() {
-    const rulesPath = path.join(os.tmpdir(), 'gitleaks-custom-rules.toml');
-    fs.writeFileSync(rulesPath, this.createCustomRules());
-    return rulesPath;
+    // Throw error if config file is not found
+    throw new Error(`❌ gitleaks.toml not found at: ${configPath}. Please create this file in the project root.`);
   }
 
   async runGitleaks(scanDir, reportPath, rulesPath) {
-    const args = ['detect', '--source', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner'];
-    core.debug(`🔍 Running Gitleaks: ${this.binaryPath} ${args.join(' ')}`);
+    const args = ['dir', scanDir, '--report-path', reportPath, '--config', rulesPath, '--no-banner'];
+
+    // Only add verbose flag in debug mode
+    if (this.debugMode) {
+      args.push('--verbose');
+    }
+
+    this.debugLog(`🔍 Running Secret Detector: ${this.binaryPath} ${args.join(' ')}`);
 
     let stdoutOutput = '';
     let stderrOutput = '';
 
     const options = {
       listeners: {
-        stdout: (data) => { stdoutOutput += data.toString(); },
-        stderr: (data) => { stderrOutput += data.toString(); },
+        stdout: (data) => {
+          stdoutOutput += data.toString();
+          if (this.debugMode) {
+            process.stdout.write(data);
+          }
+        },
+        stderr: (data) => {
+          stderrOutput += data.toString();
+          if (this.debugMode) {
+            process.stderr.write(data);
+          }
+        }
       },
       ignoreReturnCode: true,
+      silent: !this.debugMode
     };
 
     const exitCode = await exec.exec(this.binaryPath, args, options);
-    core.debug(`Gitleaks STDOUT: ${stdoutOutput}`);
+    this.debugLog(`Secret Detector exit code: ${exitCode}`);
+    this.debugLog(`Secret Detector STDOUT: ${stdoutOutput}`);
     if (stderrOutput && stderrOutput.trim()) {
-      core.warning(`Gitleaks STDERR: ${stderrOutput}`);
+      this.debugLog(`Secret Detector STDERR: ${stderrOutput}`);
     }
-    
+
     return exitCode;
   }
 
@@ -199,7 +173,7 @@ tags = ["gitlab", "token"]
           const report = JSON.parse(data);
           resolve(report.length ? report : "No secrets detected.");
         } catch (e) {
-          reject(new Error("Invalid JSON in gitleaks report."));
+          reject(new Error("Invalid JSON in secret detector report."));
         }
       });
     });
@@ -237,41 +211,6 @@ tags = ["gitlab", "token"]
     return segments.join('/');
   }
 
-  async sendSecretsToApi(projectId, secretItems) {
-    const apiUrl = `https://dev.neoTrak.io/open-pulse/project/update-secrets/${projectId}`;
-    const secretsData = secretItems.map(item => this.mapToSBOMSecret(item));
-
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-
-    const apiKey = process.env.X_API_KEY;
-    const secretKey = process.env.X_SECRET_KEY;
-    const tenantKey = process.env.X_TENANT_KEY;
-
-    if (apiKey) headers['x-api-key'] = apiKey;
-    if (secretKey) headers['x-secret-key'] = secretKey;
-    if (tenantKey) headers['x-tenant-key'] = tenantKey;
-
-    try {
-      core.debug('Sending secrets:', JSON.stringify(secretsData, null, 2));
-
-      const response = await axios.post(apiUrl, secretsData, {
-        headers,
-        timeout: 60000,
-      });
-
-      if (response.status >= 200 && response.status < 300) {
-        core.info('✅ Secrets updated successfully in SBOM API.');
-      } else {
-        core.error(`❌ Failed to update secrets. Status: ${response.status}`);
-        core.error('Response body:', response.data);
-      }
-    } catch (err) {
-      core.error('❌ Error sending secrets to SBOM API:', err.message || err);
-    }
-  }
-
   /**
    * Required by orchestrator
    */
@@ -280,7 +219,19 @@ tags = ["gitlab", "token"]
       const startTime = Date.now();
       const scanDir = config.scanTarget || config.workspaceDir || '.';
       const reportPath = path.join(os.tmpdir(), `gitleaks_${Date.now()}_report.json`);
-      const rulesPath = this.createTempRulesFile();
+      const rulesPath = this.getConfigFilePath();
+
+      // Delete node_modules folder before scanning
+      const nodeModulesPath = path.join(scanDir, 'node_modules');
+      if (fs.existsSync(nodeModulesPath)) {
+        try {
+          core.info(`🗑️  Deleting node_modules folder before secret scan`);
+          fs.rmSync(nodeModulesPath, { recursive: true, force: true });
+          core.info('✅ node_modules deleted');
+        } catch (error) {
+          core.warning(`⚠️  Failed to delete node_modules: ${error.message}`);
+        }
+      }
 
       core.info(`🔍 Scanning for secrets in: ${scanDir}`);
 
@@ -296,48 +247,54 @@ tags = ["gitlab", "token"]
 
       const endTime = Date.now();
 
-      const filtered = Array.isArray(result)
-        ? result.filter(item =>
-          !skipFiles.includes(path.basename(item.File)) &&
-          !item.File.includes('node_modules') &&
-          !/["']?\$\{?[A-Z0-9_]+\}?["']?/.test(item.Match)
-        )
-        : result;
+      // Log all secrets before filtering
+      core.info(`📊 Total secrets detected: ${Array.isArray(result) ? result.length : 0}`);
 
-      const filteredSecrets = Array.isArray(filtered)
-        ? filtered.map(item => ({
-            Description: item.Description,
-            File: `//////${item.File}`, // Add ////// prefix to match desired format
-            Match: item.Match,
-            StartLine: String(item.StartLine),
-            EndLine: String(item.EndLine),
-            StartColumn: String(item.StartColumn),
-            EndColumn: String(item.EndColumn),
-          }))
+      // No filtering - just deduplication based on all key fields
+      // Deduplicate secrets based on File + StartLine + EndLine + StartColumn + EndColumn + Secret
+      const deduplicated = Array.isArray(result)
+        ? result.reduce((acc, item) => {
+            // Create a unique key using all location fields and the secret value
+            const key = `${item.File}:${item.StartLine}:${item.EndLine}:${item.StartColumn}:${item.EndColumn}:${item.Secret}`;
+
+            if (!acc.seen.has(key)) {
+              acc.seen.add(key);
+              acc.results.push(item);
+            } else {
+              core.info(`⏭️  Skipping duplicate: ${item.File}:${item.StartLine} (${item.RuleID}) - already detected by another rule`);
+            }
+            return acc;
+          }, { seen: new Set(), results: [] }).results
         : [];
+
+      core.info(`✅ Secrets after deduplication: ${deduplicated.length}`);
+
+      const filteredSecrets = deduplicated.map(item => ({
+        RuleID: item.RuleID || '',
+        Description: item.Description || '',
+        File: `//////${item.File}`, // Add ////// prefix to match desired format
+        Match: item.Match || '',
+        Secret: item.Secret || '',
+        StartLine: String(item.StartLine || ''),
+        EndLine: String(item.EndLine || ''),
+        StartColumn: String(item.StartColumn || ''),
+        EndColumn: String(item.EndColumn || ''),
+      }));
 
       const durationMs = endTime - startTime;
       const durationMin = Math.floor(durationMs / 60000);
       const durationSec = Math.floor((durationMs % 60000) / 1000);
       const durationStr = `${durationMin}min ${durationSec}s`;
 
-      core.info(`🔐 Secrets detected: ${Array.isArray(filtered) ? filtered.length : 0}`);
+      core.info(`🔐 Unique secrets detected: ${deduplicated.length}`);
       core.info(`⏰ Scan duration: ${durationStr}`);
 
-      // Send secrets to API if found and PROJECT_ID is set
-      if (filtered !== "No secrets detected." && Array.isArray(filtered) && filtered.length > 0) {
-        const projectId = process.env.PROJECT_ID;
-        if (projectId) {
-          core.debug('Raw secrets data:', JSON.stringify(filtered, null, 2));
-          await this.sendSecretsToApi(projectId, filtered);
-        } else {
-          core.warning('PROJECT_ID environment variable not set. Skipping API upload.');
-        }
-      }
-
-      // Clean up temporary files
+      // Clean up temporary files (but not the project's config file)
       try {
-        fs.unlinkSync(rulesPath);
+        // Only delete if it's a temporary file
+        if (rulesPath.includes(os.tmpdir())) {
+          fs.unlinkSync(rulesPath);
+        }
         if (fs.existsSync(reportPath)) {
           fs.unlinkSync(reportPath);
         }
@@ -346,7 +303,7 @@ tags = ["gitlab", "token"]
       }
 
       // Return results in the format expected by orchestrator
-      const secretCount = Array.isArray(filtered) ? filtered.length : 0;
+      const secretCount = deduplicated.length;
       return {
         total: secretCount,
         critical: 0, // Secrets don't have severity levels like vulnerabilities

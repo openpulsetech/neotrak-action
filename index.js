@@ -5,11 +5,12 @@ const cdxgenScanner = require('./scanners/sbom');
 const secretDetectorScanner = require('./scanners/secret-detector');
 const configScanner = require('./scanners/config');
 const path = require('path');
-// Future scanners can be imported here
-// const grypeScanner = require('./scanners/grype');
-// const snykScanner = require('./scanners/snyk');
 
-class NeotrakSecurityOrchestrator {
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
+
+class SecurityOrchestrator {
   constructor() {
     this.scanners = [];
     this.results = {
@@ -20,6 +21,16 @@ class NeotrakSecurityOrchestrator {
       low: 0,
       scannerResults: []
     };
+    this.debugMode = process.env.DEBUG_MODE === 'true';
+  }
+
+  /**
+   * Log message only if debug mode is enabled
+   */
+  debugLog(message) {
+    if (this.debugMode) {
+      core.info(message);
+    }
   }
 
   /**
@@ -44,7 +55,7 @@ class NeotrakSecurityOrchestrator {
    * Initialize all scanners
    */
   async initializeScanners() {
-    core.startGroup('🔧 Neotrak Security Scanner Setup');
+    core.startGroup('🔧 neotrak Scanner Setup');
 
     for (const scanner of this.scanners) {
       try {
@@ -63,11 +74,11 @@ class NeotrakSecurityOrchestrator {
    * Run all registered scanners
    */
   async runScans() {
-    core.startGroup('🔍 Neotrak Security Scan');
+    core.startGroup('🔍 neotrak Scan');
 
     const scanType = core.getInput('scan-type') || 'fs';
     const scanTarget = core.getInput('scan-target') || '.';
-    const severity = core.getInput('severity') || 'HIGH,CRITICAL';
+    const severity = core.getInput('severity') || 'CRITICAL,HIGH,MEDIUM,LOW';  // Include all severities
     const ignoreUnfixed = core.getInput('ignore-unfixed') === 'true';
 
 
@@ -122,6 +133,181 @@ class NeotrakSecurityOrchestrator {
     this.results.low += scanResult.low || 0;
   }
 
+    /**
+   * Upload combined scan results (config + secrets) + SBOM file
+   */
+  async uploadCombinedResults(projectId, configResult, secretResult) {
+    const maxRetries = 3;
+    const retryDelay = 5000; // 5 seconds base delay
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const apiEndpoint = core.getInput('api_endpoint');
+        const apiUrl = `${apiEndpoint}/open-pulse/project/upload-all/${projectId}`;
+        core.info(`📤 Preparing upload to: ${apiUrl} (Attempt ${attempt}/${maxRetries})`);
+
+        if (attempt > 1) {
+          const delay = retryDelay * attempt;
+          core.info(`⏳ Retry attempt ${attempt}/${maxRetries} after ${delay/1000}s delay...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        // ✅ 1. Build CombinedScanRequest JSON structure matching API DTOs
+        const combinedScanRequest = {
+          configScanResponseDto: configResult?.configScanResponseDto || {
+            ArtifactName: '',
+            ArtifactType: '',
+            Results: []
+          },
+          scannerSecretResponse: (secretResult?.secrets || []).map(item => ({
+            RuleID: item.RuleID || '',
+            Description: item.Description || '',
+            File: item.File || '',
+            Match: item.Match || '',
+            Secret: item.Secret || '',
+            StartLine: item.StartLine || '',
+            EndLine: item.EndLine || '',
+            StartColumn: item.StartColumn || '',
+            EndColumn: item.EndColumn || ''
+          }))
+        };
+
+        // ✅ 2. Get SBOM file from Trivy/CDXGen result
+        const sbomPath = this.getTrivySbomResult()?.sbomPath;
+        if (!sbomPath || !fs.existsSync(sbomPath)) {
+          core.warning('⚠️ SBOM file not found — skipping upload.');
+          return;
+        }
+
+        // ✅ 3. Prepare multipart form-data
+        const formData = new FormData();
+        formData.append('combinedScanRequest', JSON.stringify(combinedScanRequest), {
+          contentType: 'application/json'
+        });
+        formData.append('sbomFile', fs.createReadStream(sbomPath));
+        formData.append('displayName', process.env.DISPLAY_NAME || 'sbom');
+
+        // Get branch name from GitHub context
+        // For pull requests, use the head branch; otherwise use ref
+        const branchName = github.context.payload.pull_request?.head?.ref
+          || github.context.ref.replace('refs/heads/', '').replace('refs/tags/', '')
+          || process.env.BRANCH_NAME
+          || 'main';
+
+        // Get repository name from GitHub context
+        const repoName = github.context.payload.repository?.name
+          || github.context.repo.repo
+          || process.env.GITHUB_REPOSITORY?.split('/')[1]
+          || 'unknown-repo';
+
+        core.info(`🌿 Running action on branch: ${branchName}`);
+        core.info(`📦 Repository name: ${repoName}`);
+        formData.append('branchName', branchName);
+        formData.append('repoName', repoName);
+        if (process.env.CICD_SOURCE) formData.append('cicdSource', process.env.CICD_SOURCE);
+        if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
+
+        // ✅ 4. Headers (if authentication is used)
+        const headers = {
+          ...formData.getHeaders(),
+          'x-api-key': process.env.X_API_KEY || '',
+          'x-secret-key': process.env.X_SECRET_KEY || '',
+          'x-tenant-key': process.env.X_TENANT_KEY || ''
+        };
+
+        // ✅ 5. Print request details (only on first attempt)
+        if (attempt === 1) {
+          this.debugLog('📋 Request Details:');
+          this.debugLog(`URL: ${apiUrl}`);
+          this.debugLog(`Headers: ${JSON.stringify(headers, null, 2)}`);
+          this.debugLog(`FormData fields: ${JSON.stringify({
+            combinedScanRequest: 'JSON string (see below)',
+            sbomFile: sbomPath,
+            displayName: process.env.DISPLAY_NAME || 'sbom',
+            branchName: branchName,
+            repoName: repoName,
+            cicdSource: process.env.CICD_SOURCE || 'not set',
+            jobId: process.env.JOB_ID || 'not set'
+
+          }, null, 2)}`);
+          this.debugLog(`\n📦 CombinedScanRequest Structure:`);
+          this.debugLog(`  - configScanResponseDto:`);
+          this.debugLog(`      ArtifactName: ${combinedScanRequest.configScanResponseDto.ArtifactName}`);
+          this.debugLog(`      ArtifactType: ${combinedScanRequest.configScanResponseDto.ArtifactType}`);
+          this.debugLog(`      Results count: ${combinedScanRequest.configScanResponseDto.Results?.length || 0}`);
+
+          // Count total misconfigurations across all results
+          const totalMisconfigs = combinedScanRequest.configScanResponseDto.Results?.reduce((sum, result) => {
+            return sum + (result.Misconfigurations?.length || 0);
+          }, 0) || 0;
+          this.debugLog(`      Total Misconfigurations: ${totalMisconfigs}`);
+
+          // Log each result file and its misconfiguration count
+          combinedScanRequest.configScanResponseDto.Results?.forEach((result, idx) => {
+            this.debugLog(`      Result ${idx + 1}: ${result.Target} (${result.Misconfigurations?.length || 0} issues)`);
+          });
+
+          this.debugLog(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
+          this.debugLog(`\n📋 Full CombinedScanRequest JSON:`);
+          this.debugLog(JSON.stringify(combinedScanRequest, null, 2));
+        }
+
+        // ✅ 6. Send POST request with extended timeout
+        core.info('⏳ Sending request to API (this may take a few minutes)...');
+        const response = await axios.post(apiUrl, formData, {
+          headers,
+          maxBodyLength: Infinity,
+          timeout: 300000  // Increased to 5 minutes (300 seconds)
+        });
+
+        core.info(`✅ Upload successful: ${response.status} ${response.statusText}`);
+        core.info(`Response Data: ${JSON.stringify(response.data)}`);
+        return; // Success - exit the retry loop
+
+      } catch (error) {
+        lastError = error;
+        const isRetryable = error.code === 'ETIMEDOUT' ||
+                           error.code === 'ECONNABORTED' ||
+                           error.code === 'ECONNRESET' ||
+                           error.code === 'ENOTFOUND';
+
+        core.error(`❌ Upload failed (Attempt ${attempt}/${maxRetries}): ${error.message}`);
+
+        if (error.code === 'ETIMEDOUT') {
+          core.error('🔌 Connection timed out. The server at 174.138.122.245:443 is not responding.');
+          core.error('💡 Possible causes:');
+          core.error('   - Server is down or unreachable');
+          core.error('   - Firewall blocking GitHub Actions IP addresses');
+          core.error('   - Network connectivity issues');
+        } else if (error.code === 'ECONNABORTED') {
+          core.error('⏱️  The request timed out. The API server may be processing a large SBOM file.');
+        }
+
+        if (error.response) {
+          core.error(`Response Status: ${error.response.status}`);
+          core.error(`Response Data: ${JSON.stringify(error.response.data)}`);
+        } else if (error.request) {
+          core.error('No response received from server. The request was made but no response was received.');
+        }
+
+        // If this is the last attempt or error is not retryable, break
+        if (attempt >= maxRetries || !isRetryable) {
+          core.error('❌ All retry attempts exhausted or non-retryable error occurred.');
+          break;
+        }
+
+        core.info(`🔄 Will retry in ${(retryDelay * (attempt + 1)) / 1000}s...`);
+      }
+    }
+
+    // If we get here, all retries failed
+    core.warning('⚠️ Upload failed but continuing workflow...');
+    if (lastError) {
+      core.error(`Final error: ${lastError.message}`);
+    }
+  }
+
   getTrivySbomResult() {
     return this.results.scannerResults.find(
       r => r.scanner && r.scanner.toLowerCase().includes('sbom') 
@@ -141,7 +327,74 @@ class NeotrakSecurityOrchestrator {
     );
   }
 
-   createTableBorder(colWidths) {
+  /**
+   * Wrap text to fit within a column width
+   * Keeps content on first line if it fits, splits at comma or space for overflow
+   */
+  wrapText(text, width) {
+    if (!text || text.length <= width) {
+      return [text || ''];
+    }
+
+    const lines = [];
+
+    // If text contains commas (like version lists), split by comma
+    if (text.includes(',')) {
+      let currentLine = '';
+      const parts = text.split(',').map(p => p.trim());
+
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i] + (i < parts.length - 1 ? ',' : '');
+        const testLine = currentLine ? currentLine + ' ' + part : part;
+
+        if (testLine.length <= width) {
+          currentLine = testLine;
+        } else {
+          if (currentLine) {
+            lines.push(currentLine);
+            currentLine = part;
+          } else {
+            // Part is too long, truncate it
+            lines.push(part.substring(0, width));
+            currentLine = '';
+          }
+        }
+      }
+
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+    } else {
+      // Split by words for non-comma separated text
+      let currentLine = '';
+      const words = text.split(' ');
+
+      for (const word of words) {
+        const testLine = currentLine ? currentLine + ' ' + word : word;
+
+        if (testLine.length <= width) {
+          currentLine = testLine;
+        } else {
+          if (currentLine) {
+            lines.push(currentLine);
+            currentLine = word;
+          } else {
+            // Word is too long, truncate it
+            lines.push(word.substring(0, width));
+            currentLine = word.substring(width);
+          }
+        }
+      }
+
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+    }
+
+    return lines.length > 0 ? lines : [''];
+  }
+
+  createTableBorder(colWidths) {
     const top = '┌' + Object.values(colWidths).map(w => '─'.repeat(w)).join('┬') + '┐';
     const middle = '├' + Object.values(colWidths).map(w => '─'.repeat(w)).join('┼') + '┤';
     const bottom = '└' + Object.values(colWidths).map(w => '─'.repeat(w)).join('┴') + '┘';
@@ -156,10 +409,10 @@ class NeotrakSecurityOrchestrator {
     core.info('\n📋 Vulnerability Details:\n');
     
     const colWidths = {
-      package: 35,
+      package: 45,
       vuln: 22,
-      severity: 12,
-      fixed: 18
+      severity: 14,
+      fixed: 25
     };
     
     const borders = this.createTableBorder(colWidths);
@@ -185,19 +438,29 @@ class NeotrakSecurityOrchestrator {
       const vulnsOfSeverity = trivySbomResult.vulnerabilities.filter(
         v => (v.Severity || '').toUpperCase() === severity
       );
-      
+
       vulnsOfSeverity.forEach(vuln => {
-        const pkg = (vuln.PkgName || 'Unknown').substring(0, colWidths.package - 3);
-        const vulnId = (vuln.VulnerabilityID || 'N/A').substring(0, colWidths.vuln - 3);
         const emoji = severityEmojis[severity] || '';
-        const sev = (emoji + ' ' + severity).substring(0, colWidths.severity - 3);
-        const fixed = (vuln.FixedVersion || 'N/A').substring(0, colWidths.fixed - 3);
-        
-        const row = '│ ' + pkg.padEnd(colWidths.package - 2) + ' │ ' +
-                   vulnId.padEnd(colWidths.vuln - 2) + ' │ ' +
-                   sev.padEnd(colWidths.severity - 2) + ' │ ' +
-                   fixed.padEnd(colWidths.fixed - 2) + ' │';
-        core.info(row);
+
+        // Wrap text for each column
+        const pkgLines = this.wrapText(vuln.PkgName || 'Unknown', colWidths.package - 2);
+        const vulnLines = this.wrapText(vuln.VulnerabilityID || 'N/A', colWidths.vuln - 2);
+        const sevLines = this.wrapText(emoji + ' ' + severity, colWidths.severity - 2);
+        const fixedLines = this.wrapText(vuln.FixedVersion || 'N/A', colWidths.fixed - 2);
+
+        // Find the maximum number of lines needed
+        const maxLines = Math.max(pkgLines.length, vulnLines.length, sevLines.length, fixedLines.length);
+
+        // Print each line of the row
+        for (let i = 0; i < maxLines; i++) {
+          const pkg = (pkgLines[i] || '').padEnd(colWidths.package - 2);
+          const vulnId = (vulnLines[i] || '').padEnd(colWidths.vuln - 2);
+          const sev = (sevLines[i] || '').padEnd(colWidths.severity - 2);
+          const fixed = (fixedLines[i] || '').padEnd(colWidths.fixed - 2);
+
+          const row = '│ ' + pkg + ' │ ' + vulnId + ' │ ' + sev + ' │ ' + fixed + ' │';
+          core.info(row);
+        }
       });
     });
     
@@ -212,7 +475,7 @@ class NeotrakSecurityOrchestrator {
     core.info('\n📋 Misconfiguration Details:\n');
     
     const colWidths = {
-      file: 30,
+      file: 50,
       issue: 35,
       severity: 12,
       line: 10
@@ -240,19 +503,29 @@ class NeotrakSecurityOrchestrator {
       const configsOfSeverity = configResult.misconfigurations.filter(
         c => (c.Severity || '').toUpperCase() === severity
       );
-      
+
       configsOfSeverity.forEach(config => {
-        const file = (config.File || 'Unknown').substring(0, colWidths.file - 3);
-        const issue = (config.Issue || config.Title || 'N/A').substring(0, colWidths.issue - 3);
         const emoji = severityEmojis[severity] || '';
-        const sev = (emoji + ' ' + severity).substring(0, colWidths.severity - 3);
-        const line = (config.Line || 'N/A').toString().substring(0, colWidths.line - 3);
-        
-        const row = '│ ' + file.padEnd(colWidths.file - 2) + ' │ ' +
-                   issue.padEnd(colWidths.issue - 2) + ' │ ' +
-                   sev.padEnd(colWidths.severity - 2) + ' │ ' +
-                   line.padEnd(colWidths.line - 2) + ' │';
-        core.info(row);
+
+        // Wrap text for each column
+        const fileLines = this.wrapText(config.File || 'Unknown', colWidths.file - 2);
+        const issueLines = this.wrapText(config.Issue || config.Title || 'N/A', colWidths.issue - 2);
+        const sevLines = this.wrapText(emoji + ' ' + severity, colWidths.severity - 2);
+        const lineLines = this.wrapText((config.Line || 'N/A').toString(), colWidths.line - 2);
+
+        // Find the maximum number of lines needed
+        const maxLines = Math.max(fileLines.length, issueLines.length, sevLines.length, lineLines.length);
+
+        // Print each line of the row
+        for (let i = 0; i < maxLines; i++) {
+          const file = (fileLines[i] || '').padEnd(colWidths.file - 2);
+          const issue = (issueLines[i] || '').padEnd(colWidths.issue - 2);
+          const sev = (sevLines[i] || '').padEnd(colWidths.severity - 2);
+          const line = (lineLines[i] || '').padEnd(colWidths.line - 2);
+
+          const row = '│ ' + file + ' │ ' + issue + ' │ ' + sev + ' │ ' + line + ' │';
+          core.info(row);
+        }
       });
     });
     
@@ -267,8 +540,7 @@ class NeotrakSecurityOrchestrator {
     core.info('\n📋 Secret Details:\n');
     
     const colWidths = {
-      file: 35,
-      type: 25,
+      file: 70,
       line: 10,
       matched: 25
     };
@@ -278,20 +550,18 @@ class NeotrakSecurityOrchestrator {
     // Table header
     core.info(borders.top);
     const header = '│ ' + 'File'.padEnd(colWidths.file - 2) + ' │ ' +
-                  'Secret Type'.padEnd(colWidths.type - 2) + ' │ ' +
                   'Line'.padEnd(colWidths.line - 2) + ' │ ' +
-                  'Matched'.padEnd(colWidths.matched - 2) + ' │';
+                  'Matched Secret'.padEnd(colWidths.matched - 2) + ' │';
     core.info(header);
     core.info(borders.middle);
 
     secretResult.secrets.forEach(secret => {
-      const file = (secret.File || 'Unknown').substring(0, colWidths.file - 3);
-      const type = (secret.RuleID || secret.Type || 'N/A').substring(0, colWidths.type - 3);
+      const cleanFile = (secret.File || 'Unknown').replace(/^\/+/, '');
+      const file = cleanFile.substring(0, colWidths.file - 3);
       const line = (secret.StartLine || secret.Line || 'N/A').toString().substring(0, colWidths.line - 3);
       const matched = (secret.Match || 'N/A').substring(0, colWidths.matched - 3);
       
       const row = '│ ' + file.padEnd(colWidths.file - 2) + ' │ ' +
-                 type.padEnd(colWidths.type - 2) + ' │ ' +
                  line.padEnd(colWidths.line - 2) + ' │ ' +
                  matched.padEnd(colWidths.matched - 2) + ' │';
       core.info(row);
@@ -304,7 +574,7 @@ class NeotrakSecurityOrchestrator {
    * Display consolidated results
    */
   displayResults() {
-    core.startGroup('📊 Neotrak Security Scan Results');
+    core.startGroup('📊 neotrak Scan Results');
 
     core.info('='.repeat(50));
     core.info('CONSOLIDATED VULNERABILITY REPORT');
@@ -321,76 +591,9 @@ class NeotrakSecurityOrchestrator {
       core.info(`   🟢 Low: ${trivySbomResult.low}`);
 
       // Display vulnerability details in pretty table format
-      // if (trivySbomResult.vulnerabilities && trivySbomResult.vulnerabilities.length > 0) {
-      //   core.info('\n📋 Vulnerability Details:\n');
-        
-      //   // Column widths
-      //   const colWidths = {
-      //     package: 35,
-      //     vuln: 22,
-      //     severity: 12,
-      //     fixed: 18
-      //   };
-        
-      //   // Create table borders
-      //   const topBorder = '┌' + '─'.repeat(colWidths.package) + '┬' + 
-      //                    '─'.repeat(colWidths.vuln) + '┬' + 
-      //                    '─'.repeat(colWidths.severity) + '┬' + 
-      //                    '─'.repeat(colWidths.fixed) + '┐';
-        
-      //   const middleBorder = '├' + '─'.repeat(colWidths.package) + '┼' + 
-      //                       '─'.repeat(colWidths.vuln) + '┼' + 
-      //                       '─'.repeat(colWidths.severity) + '┼' + 
-      //                       '─'.repeat(colWidths.fixed) + '┤';
-        
-      //   const bottomBorder = '└' + '─'.repeat(colWidths.package) + '┴' + 
-      //                       '─'.repeat(colWidths.vuln) + '┴' + 
-      //                       '─'.repeat(colWidths.severity) + '┴' + 
-      //                       '─'.repeat(colWidths.fixed) + '┘';
-        
-      //   // Table header
-      //   core.info(topBorder);
-      //   const header = '│ ' + 'Package'.padEnd(colWidths.package - 2) + ' │ ' +
-      //                 'Vulnerability'.padEnd(colWidths.vuln - 2) + ' │ ' +
-      //                 'Severity'.padEnd(colWidths.severity - 2) + ' │ ' +
-      //                 'Fixed Version'.padEnd(colWidths.fixed - 2) + ' │';
-      //   core.info(header);
-      //   core.info(middleBorder);
-
-      //   // Display vulnerabilities grouped by severity
-      //   const severities = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
-      //   const severityEmojis = {
-      //     'CRITICAL': '🔴',
-      //     'HIGH': '🟠',
-      //     'MEDIUM': '🟡',
-      //     'LOW': '🟢'
-      //   };
-        
-      //   severities.forEach(severity => {
-      //     const vulnsOfSeverity = trivySbomResult.vulnerabilities.filter(
-      //       v => (v.Severity || '').toUpperCase() === severity
-      //     );
-          
-      //     vulnsOfSeverity.forEach(vuln => {
-      //       const pkg = (vuln.PkgName || 'Unknown').substring(0, colWidths.package - 3);
-      //       const vulnId = (vuln.VulnerabilityID || 'N/A').substring(0, colWidths.vuln - 3);
-      //       const emoji = severityEmojis[severity] || '';
-      //       const sev = (emoji + ' ' + severity).substring(0, colWidths.severity - 3);
-      //       const fixed = (vuln.FixedVersion || 'N/A').substring(0, colWidths.fixed - 3);
-            
-      //       const row = '│ ' + pkg.padEnd(colWidths.package - 2) + ' │ ' +
-      //                  vulnId.padEnd(colWidths.vuln - 2) + ' │ ' +
-      //                  sev.padEnd(colWidths.severity - 2) + ' │ ' +
-      //                  fixed.padEnd(colWidths.fixed - 2) + ' │';
-      //       core.info(row);
-      //     });
-      //   });
-        
-      //   core.info(bottomBorder);
-      // }
       this.displayVulnerabilityTable(trivySbomResult);
     } else {
-      core.info('   ⚠️ No Trivy results found.');
+      core.info('   ⚠️ No vulnerability scan results found.');
     }
 
     core.info('='.repeat(50));
@@ -470,7 +673,7 @@ class NeotrakSecurityOrchestrator {
         });
       }
 
-      const comment = `## ${emoji} Neotrak Security Scan Report
+      const comment = `## ${emoji} Security Scan Report
 
 **Status:** ${status}
 
@@ -488,7 +691,7 @@ ${this.results.total > 0 ?
           '✨ No security vulnerabilities detected!'}
 
 ---
-*Powered by Neotrak Security Scanner*`;
+*Security Scan Complete*`;
 
       await octokit.rest.issues.createComment({
         ...context.repo,
@@ -519,13 +722,47 @@ ${this.results.total > 0 ?
       return false;
     }
 
-    return this.results.total > 0;
+    // Get fail-on configuration (default: true for all)
+    const failOnVulnerability = core.getInput('fail-on-vulnerability') !== 'false';
+    const failOnMisconfiguration = core.getInput('fail-on-misconfiguration') !== 'false';
+    const failOnSecret = core.getInput('fail-on-secret') !== 'false';
+
+    // Check each scanner type
+    const trivySbomResult = this.getTrivySbomResult();
+    const configResult = this.getConfigResult();
+    const secretResult = this.getSecretResult();
+
+    let shouldFail = false;
+    const failReasons = [];
+
+    // Check vulnerabilities
+    if (failOnVulnerability && trivySbomResult && trivySbomResult.total > 0) {
+      shouldFail = true;
+      failReasons.push(`${trivySbomResult.total} vulnerabilities (${trivySbomResult.critical} Critical, ${trivySbomResult.high} High)`);
+    }
+
+    // Check misconfigurations
+    if (failOnMisconfiguration && configResult && configResult.total > 0) {
+      shouldFail = true;
+      failReasons.push(`${configResult.total} misconfigurations (${configResult.critical} Critical, ${configResult.high} High)`);
+    }
+
+    // Check secrets
+    if (failOnSecret && secretResult && secretResult.total > 0) {
+      shouldFail = true;
+      failReasons.push(`${secretResult.total} secrets detected`);
+    }
+
+    // Store fail reasons for use in error message
+    this.failReasons = failReasons;
+
+    return shouldFail;
   }
 }
 
 async function run() {
   try {
-    const orchestrator = new NeotrakSecurityOrchestrator();
+    const orchestrator = new SecurityOrchestrator();
 
     // Register scanners
     orchestrator.registerScanner(trivyScanner);
@@ -548,6 +785,18 @@ async function run() {
     // Set outputs
     orchestrator.setOutputs();
 
+    // ✅ Upload results to your backend
+    const projectId = process.env.PROJECT_ID;
+    if (projectId) {
+      const configResult = orchestrator.getConfigResult();
+  
+      const secretResult = orchestrator.getSecretResult();
+
+      await orchestrator.uploadCombinedResults(projectId, configResult, secretResult);
+    } else {
+      core.warning('⚠️ PROJECT_ID not set — skipping upload to /upload-all');
+    }
+
     // Post PR comment
     await orchestrator.postPRComment();
 
@@ -556,41 +805,14 @@ async function run() {
     const failOnVulneribilityDisabled = failOnVulneribilityInput === 'false';
     
     if (orchestrator.shouldFail()) {
-      const trivySbomResult = orchestrator.getTrivySbomResult();
-     if (trivySbomResult) {
-        core.setFailed(
-          `Neotrak Security Scanner found ${trivySbomResult.total} vulnerabilities ` +
-          `(${trivySbomResult.critical} Critical, ${trivySbomResult.high} High)`
-        );
-      } else {
-        core.setFailed(
-          `Neotrak Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
-          `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High)`
-        );
-      }
+      const failMessage = `Security Scanner found issues:\n  - ${orchestrator.failReasons.join('\n  - ')}`;
+      core.setFailed(failMessage);
     } else {
-      if (orchestrator.results.total > 0 && failOnVulneribilityDisabled) {
-        const trivySbomResult = orchestrator.getTrivySbomResult();
-        if (trivySbomResult) {
-          core.warning(
-            `⚠️ Neotrak Security Scanner found ${trivySbomResult.total} vulnerabilities ` +
-            `(${trivySbomResult.critical} Critical, ${trivySbomResult.high} High). ` +
-            `Build proceeding because fail_on_vulneribility is set to false.`
-          );
-        } else {
-          core.warning(
-            `⚠️ Neotrak Security Scanner found ${orchestrator.results.total} vulnerabilities ` +
-            `(${orchestrator.results.critical} Critical, ${orchestrator.results.high} High). ` +
-            `Build proceeding because fail_on_vulneribility is set to false.`
-          );
-        }
-      } else {
-        core.info('✅ Security scan completed successfully');
-      }
+      core.info('✅ Security scan completed successfully');
     }
 
   } catch (error) {
-    core.setFailed(`Neotrak Security scan failed: ${error.message}`);
+    core.setFailed(`Security scan failed: ${error.message}`);
   }
 }
 

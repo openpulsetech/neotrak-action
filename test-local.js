@@ -12,7 +12,7 @@ process.env.RUNNER_TOOL_CACHE = require('path').join(require('os').homedir(), '.
 process.env.RUNNER_WORKSPACE = process.cwd();
 process.env.GITHUB_WORKSPACE = process.cwd();
 
-console.log('🧪 Starting NTU Security Scanner local test...');
+console.log('🧪 Starting neotrak Security Scanner local test...');
 console.log('Environment variables set for local testing');
 
 require('./index.js');
