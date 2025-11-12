@@ -15750,7 +15750,7 @@ const path = __webpack_require__(6928);
 
 // Trivy scanner configuration
 const TRIVY_VERSION = 'v0.48.0';
-const SCANNER_BINARY = 'ntu-scanner-trivy';
+const SCANNER_BINARY = 'neotrak-scanner-trivy';
 
 class TrivyScanner {
   constructor() {
@@ -15818,7 +15818,7 @@ class TrivyScanner {
       // Add to PATH
       const cachedPath = await tc.cacheDir(
         path.dirname(scannerPath), 
-        'ntu-scanner-trivy', 
+        'neotrak-scanner-trivy', 
         TRIVY_VERSION
       );
       core.addPath(cachedPath);
@@ -45993,6 +45993,13 @@ ${this.results.total > 0 ?
    * Determine if workflow should fail
    */
   shouldFail() {
+    const failOnVulneribilityInput = core.getInput('fail_on_vulneribility');
+    
+    // If fail_on_vulneribility is explicitly set to 'false', never fail the build
+    if (failOnVulneribilityInput === 'false') {
+      return false;
+    }
+
     const exitCode = core.getInput('exit-code') || '1';
 
     if (exitCode === '0') {
@@ -46078,6 +46085,9 @@ async function run() {
     await orchestrator.postPRComment();
 
     // Check if should fail
+    const failOnVulneribilityInput = core.getInput('fail_on_vulneribility');
+    const failOnVulneribilityDisabled = failOnVulneribilityInput === 'false';
+    
     if (orchestrator.shouldFail()) {
       const failMessage = `Security Scanner found issues:\n  - ${orchestrator.failReasons.join('\n  - ')}`;
       core.setFailed(failMessage);

@@ -7,7 +7,7 @@ const path = require('path');
 
 // Trivy scanner configuration
 const TRIVY_VERSION = 'v0.48.0';
-const SCANNER_BINARY = 'ntu-scanner-trivy';
+const SCANNER_BINARY = 'neotrak-scanner-trivy';
 
 class TrivyScanner {
   constructor() {
@@ -75,7 +75,7 @@ class TrivyScanner {
       // Add to PATH
       const cachedPath = await tc.cacheDir(
         path.dirname(scannerPath), 
-        'ntu-scanner-trivy', 
+        'neotrak-scanner-trivy', 
         TRIVY_VERSION
       );
       core.addPath(cachedPath);

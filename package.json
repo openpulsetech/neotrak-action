@@ -1,5 +1,6 @@
 {
     "name": "neotrak-security-scanner-action",
+    "name": "neotrak-security-scanner-action",
     "version": "1.0.0",
     "description": "neotrak enterprise security scanner for GitHub Actions",
     "main": "dist/index.js",

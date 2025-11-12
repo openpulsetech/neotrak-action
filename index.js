@@ -709,6 +709,13 @@ ${this.results.total > 0 ?
    * Determine if workflow should fail
    */
   shouldFail() {
+    const failOnVulneribilityInput = core.getInput('fail_on_vulneribility');
+    
+    // If fail_on_vulneribility is explicitly set to 'false', never fail the build
+    if (failOnVulneribilityInput === 'false') {
+      return false;
+    }
+
     const exitCode = core.getInput('exit-code') || '1';
 
     if (exitCode === '0') {
@@ -794,6 +801,9 @@ async function run() {
     await orchestrator.postPRComment();
 
     // Check if should fail
+    const failOnVulneribilityInput = core.getInput('fail_on_vulneribility');
+    const failOnVulneribilityDisabled = failOnVulneribilityInput === 'false';
+    
     if (orchestrator.shouldFail()) {
       const failMessage = `Security Scanner found issues:\n  - ${orchestrator.failReasons.join('\n  - ')}`;
       core.setFailed(failMessage);
