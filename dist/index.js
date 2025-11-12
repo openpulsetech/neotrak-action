@@ -15175,7 +15175,7 @@ module.exports = connect
 
 const core = __webpack_require__(6977);
 const exec = __webpack_require__(6665);
-const { execSync } = __webpack_require__(5317);
+const { execFileSync } = __webpack_require__(5317);
 const fs = __webpack_require__(9896);
 const os = __webpack_require__(857);
 const path = __webpack_require__(6928);
@@ -15239,18 +15239,22 @@ class ConfigScanner {
 
             const reportPath = path.join(os.tmpdir(), `trivy-config-scan-${Date.now()}.json`);
 
-            // Build command string
-            let command = `${this.binaryPath} config --format json --output ${reportPath}`;
-            command += ` ${targetPath}`;
+            // Build command arguments array (safer than string concatenation)
+            const args = [
+                'config',
+                '--format', 'json',
+                '--output', reportPath,
+                targetPath
+            ];
 
-            this.debugLog(`📝 Running: ${command}`);
+            this.debugLog(`📝 Running: ${this.binaryPath} ${args.join(' ')}`);
 
             // Use workspace directory as working directory
             const workingDir = workspaceDir || process.cwd();
             this.debugLog(`📂 Working directory: ${workingDir}`);
 
             try {
-                const output = execSync(command, {
+                const output = execFileSync(this.binaryPath, args, {
                     cwd: workingDir,
                     encoding: 'utf8',
                     stdio: ['pipe', 'pipe', 'pipe']

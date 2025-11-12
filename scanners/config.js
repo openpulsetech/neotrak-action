@@ -1,6 +1,6 @@
 const core = require('@actions/core');
 const exec = require('@actions/exec');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -64,18 +64,22 @@ class ConfigScanner {
 
             const reportPath = path.join(os.tmpdir(), `trivy-config-scan-${Date.now()}.json`);
 
-            // Build command string
-            let command = `${this.binaryPath} config --format json --output ${reportPath}`;
-            command += ` ${targetPath}`;
+            // Build command arguments array (safer than string concatenation)
+            const args = [
+                'config',
+                '--format', 'json',
+                '--output', reportPath,
+                targetPath
+            ];
 
-            this.debugLog(`📝 Running: ${command}`);
+            this.debugLog(`📝 Running: ${this.binaryPath} ${args.join(' ')}`);
 
             // Use workspace directory as working directory
             const workingDir = workspaceDir || process.cwd();
             this.debugLog(`📂 Working directory: ${workingDir}`);
 
             try {
-                const output = execSync(command, {
+                const output = execFileSync(this.binaryPath, args, {
                     cwd: workingDir,
                     encoding: 'utf8',
                     stdio: ['pipe', 'pipe', 'pipe']
