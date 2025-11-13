@@ -15367,9 +15367,11 @@ class ConfigScanner {
                                 ID: misconfiguration.ID || '',
                                 Title: misconfiguration.Title || '',
                                 Description: misconfiguration.Description || '',
+                                Message: misconfiguration.Message || '',
                                 Severity: severity || 'UNKNOWN',
                                 PrimaryURL: misconfiguration.PrimaryURL || '',
-                                Query: misconfiguration.Query || ''
+                                Query: misconfiguration.Query || '',
+                                Resolution: misconfiguration.Resolution || ''
                             });
                         });
                     }
