@@ -155,6 +155,19 @@ class SecurityOrchestrator {
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
+        // Get branch name from GitHub context
+        // For pull requests, use the head branch; otherwise use ref
+        const branchName = github.context.payload.pull_request?.head?.ref
+          || github.context.ref.replace('refs/heads/', '').replace('refs/tags/', '')
+          || process.env.BRANCH_NAME
+          || 'NOT SET';
+
+        // Get repository name from GitHub context
+        const repoName = github.context.payload.repository?.name
+          || github.context.repo.repo
+          || process.env.GITHUB_REPOSITORY?.split('/')[1]
+          || 'NOT SET';
+
         // ✅ 1. Build CombinedScanRequest JSON structure matching API DTOs
         const combinedScanRequest = {
           configScanResponseDto: configResult?.configScanResponseDto || {
@@ -172,7 +185,9 @@ class SecurityOrchestrator {
             EndLine: item.EndLine || '',
             StartColumn: item.StartColumn || '',
             EndColumn: item.EndColumn || ''
-          }))
+          })),
+          repoName: repoName,
+          branchName: branchName
         };
 
         // ✅ 2. Get SBOM file from Trivy/CDXGen result
@@ -189,19 +204,6 @@ class SecurityOrchestrator {
         });
         formData.append('sbomFile', fs.createReadStream(sbomPath));
         formData.append('displayName', process.env.DISPLAY_NAME || 'sbom');
-
-        // Get branch name from GitHub context
-        // For pull requests, use the head branch; otherwise use ref
-        const branchName = github.context.payload.pull_request?.head?.ref
-          || github.context.ref.replace('refs/heads/', '').replace('refs/tags/', '')
-          || process.env.BRANCH_NAME
-          || 'main';
-
-        // Get repository name from GitHub context
-        const repoName = github.context.payload.repository?.name
-          || github.context.repo.repo
-          || process.env.GITHUB_REPOSITORY?.split('/')[1]
-          || 'unknown-repo';
 
         core.info(`🌿 Running action on branch: ${branchName}`);
         core.info(`📦 Repository name: ${repoName}`);
