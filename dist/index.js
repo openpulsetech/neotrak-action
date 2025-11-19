@@ -45497,7 +45497,7 @@ class SecurityOrchestrator {
         core.info(`📦 Repository name: ${repoName}`);
         formData.append('branchName', branchName);
         formData.append('repoName', repoName);
-        if (process.env.CICD_SOURCE) formData.append('source', process.env.CICD_SOURCE || 'github');
+        formData.append('source', process.env.CICD_SOURCE || 'github');
         if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
 
         // ✅ 4. Headers (if authentication is used)
