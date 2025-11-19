@@ -144,7 +144,9 @@ class SecurityOrchestrator {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const apiEndpoint = core.getInput('api_endpoint');
-        const apiUrl = `${apiEndpoint}/open-pulse/project/upload-all/${projectId}`;
+        const apiUrl = projectId
+          ? `${apiEndpoint}/open-pulse/project/upload-all/${projectId}`
+          : `${apiEndpoint}/open-pulse/project/upload-all`;
         core.info(`📤 Preparing upload to: ${apiUrl} (Attempt ${attempt}/${maxRetries})`);
 
         if (attempt > 1) {
@@ -205,7 +207,7 @@ class SecurityOrchestrator {
         core.info(`📦 Repository name: ${repoName}`);
         formData.append('branchName', branchName);
         formData.append('repoName', repoName);
-        if (process.env.CICD_SOURCE) formData.append('cicdSource', process.env.CICD_SOURCE);
+        if (process.env.CICD_SOURCE) formData.append('source', process.env.CICD_SOURCE || 'github');
         if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
 
         // ✅ 4. Headers (if authentication is used)
@@ -227,7 +229,7 @@ class SecurityOrchestrator {
             displayName: process.env.DISPLAY_NAME || 'sbom',
             branchName: branchName,
             repoName: repoName,
-            cicdSource: process.env.CICD_SOURCE || 'not set',
+            source: 'github' || 'not set',
             jobId: process.env.JOB_ID || 'not set'
 
           }, null, 2)}`);
@@ -787,15 +789,10 @@ async function run() {
 
     // ✅ Upload results to your backend
     const projectId = process.env.PROJECT_ID;
-    if (projectId) {
-      const configResult = orchestrator.getConfigResult();
-  
-      const secretResult = orchestrator.getSecretResult();
+    const configResult = orchestrator.getConfigResult();
+    const secretResult = orchestrator.getSecretResult();
 
-      await orchestrator.uploadCombinedResults(projectId, configResult, secretResult);
-    } else {
-      core.warning('⚠️ PROJECT_ID not set — skipping upload to /upload-all');
-    }
+    await orchestrator.uploadCombinedResults(projectId, configResult, secretResult);
 
     // Post PR comment
     await orchestrator.postPRComment();
