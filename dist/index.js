@@ -45505,9 +45505,8 @@ class SecurityOrchestrator {
         // ✅ 4. Headers (if authentication is used)
         const headers = {
           ...formData.getHeaders(),
-          'x-api-key': process.env.X_API_KEY || '',
-          'x-secret-key': process.env.X_SECRET_KEY || '',
-          'x-tenant-key': process.env.X_TENANT_KEY || ''
+          'x-api-key': process.env.NT_API_KEY || '',
+          'x-secret-key': process.env.NT_SECRET_KEY || '',
         };
 
         // ✅ 5. Print request details (only on first attempt)
