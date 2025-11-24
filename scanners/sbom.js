@@ -80,10 +80,8 @@ class CdxgenScanner {
       const fullOutputPath = path.resolve(outputFilePath);
       core.info(`🔍 Generating SBOM for: ${targetDirectory}`);
 
-      // const args = ['--output', outputFilePath, targetDirectory];
       const args = [
         '--spec-version', '1.4',
-        '--deep',                       // ← Scan subdirectories
         '--output', outputFilePath,
         targetDirectory
       ];
