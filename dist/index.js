@@ -15367,9 +15367,11 @@ class ConfigScanner {
                                 ID: misconfiguration.ID || '',
                                 Title: misconfiguration.Title || '',
                                 Description: misconfiguration.Description || '',
+                                Message: misconfiguration.Message || '',
                                 Severity: severity || 'UNKNOWN',
                                 PrimaryURL: misconfiguration.PrimaryURL || '',
-                                Query: misconfiguration.Query || ''
+                                Query: misconfiguration.Query || '',
+                                Resolution: misconfiguration.Resolution || ''
                             });
                         });
                     }
@@ -45432,7 +45434,9 @@ class SecurityOrchestrator {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const apiEndpoint = core.getInput('api_endpoint');
-        const apiUrl = `${apiEndpoint}/open-pulse/project/upload-all/${projectId}`;
+        const apiUrl = projectId
+          ? `${apiEndpoint}/open-pulse/project/upload-all/${projectId}`
+          : `${apiEndpoint}/open-pulse/project/upload-all`;
         core.info(`📤 Preparing upload to: ${apiUrl} (Attempt ${attempt}/${maxRetries})`);
 
         if (attempt > 1) {
@@ -45440,6 +45444,19 @@ class SecurityOrchestrator {
           core.info(`⏳ Retry attempt ${attempt}/${maxRetries} after ${delay/1000}s delay...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
+
+        // Get branch name from GitHub context
+        // For pull requests, use the head branch; otherwise use ref
+        const branchName = github.context.payload.pull_request?.head?.ref
+          || github.context.ref.replace('refs/heads/', '').replace('refs/tags/', '')
+          || process.env.BRANCH_NAME
+          || 'NOT SET';
+
+        // Get repository name from GitHub context
+        const repoName = github.context.payload.repository?.name
+          || github.context.repo.repo
+          || process.env.GITHUB_REPOSITORY?.split('/')[1]
+          || 'NOT SET';
 
         // ✅ 1. Build CombinedScanRequest JSON structure matching API DTOs
         const combinedScanRequest = {
@@ -45458,7 +45475,9 @@ class SecurityOrchestrator {
             EndLine: item.EndLine || '',
             StartColumn: item.StartColumn || '',
             EndColumn: item.EndColumn || ''
-          }))
+          })),
+          repoName: repoName,
+          branchName: branchName
         };
 
         // ✅ 2. Get SBOM file from Trivy/CDXGen result
@@ -45476,32 +45495,18 @@ class SecurityOrchestrator {
         formData.append('sbomFile', fs.createReadStream(sbomPath));
         formData.append('displayName', process.env.DISPLAY_NAME || 'sbom');
 
-        // Get branch name from GitHub context
-        // For pull requests, use the head branch; otherwise use ref
-        const branchName = github.context.payload.pull_request?.head?.ref
-          || github.context.ref.replace('refs/heads/', '').replace('refs/tags/', '')
-          || process.env.BRANCH_NAME
-          || 'main';
-
-        // Get repository name from GitHub context
-        const repoName = github.context.payload.repository?.name
-          || github.context.repo.repo
-          || process.env.GITHUB_REPOSITORY?.split('/')[1]
-          || 'unknown-repo';
-
         core.info(`🌿 Running action on branch: ${branchName}`);
         core.info(`📦 Repository name: ${repoName}`);
         formData.append('branchName', branchName);
         formData.append('repoName', repoName);
-        if (process.env.CICD_SOURCE) formData.append('cicdSource', process.env.CICD_SOURCE);
+        formData.append('source', process.env.CICD_SOURCE || 'github');
         if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
 
         // ✅ 4. Headers (if authentication is used)
         const headers = {
           ...formData.getHeaders(),
-          'x-api-key': process.env.X_API_KEY || '',
-          'x-secret-key': process.env.X_SECRET_KEY || '',
-          'x-tenant-key': process.env.X_TENANT_KEY || ''
+          'x-api-key': process.env.NT_API_KEY || '',
+          'x-secret-key': process.env.NT_SECRET_KEY || '',
         };
 
         // ✅ 5. Print request details (only on first attempt)
@@ -45515,7 +45520,7 @@ class SecurityOrchestrator {
             displayName: process.env.DISPLAY_NAME || 'sbom',
             branchName: branchName,
             repoName: repoName,
-            cicdSource: process.env.CICD_SOURCE || 'not set',
+            source: 'github' || 0,
             jobId: process.env.JOB_ID || 'not set'
 
           }, null, 2)}`);
@@ -46075,15 +46080,10 @@ async function run() {
 
     // ✅ Upload results to your backend
     const projectId = process.env.PROJECT_ID;
-    if (projectId) {
-      const configResult = orchestrator.getConfigResult();
-  
-      const secretResult = orchestrator.getSecretResult();
+    const configResult = orchestrator.getConfigResult();
+    const secretResult = orchestrator.getSecretResult();
 
-      await orchestrator.uploadCombinedResults(projectId, configResult, secretResult);
-    } else {
-      core.warning('⚠️ PROJECT_ID not set — skipping upload to /upload-all');
-    }
+    await orchestrator.uploadCombinedResults(projectId, configResult, secretResult);
 
     // Post PR comment
     await orchestrator.postPRComment();
