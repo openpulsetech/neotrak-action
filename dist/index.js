@@ -45431,7 +45431,8 @@ class SecurityOrchestrator {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const apiEndpoint = core.getInput('api_endpoint');
+        const apiEndpoint = core.getInput('nt-api-endpoint');
+        
         const apiUrl = projectId
           ? `${apiEndpoint}/open-pulse/project/upload-all/${projectId}`
           : `${apiEndpoint}/open-pulse/project/upload-all`;
