@@ -83,7 +83,7 @@ class CdxgenScanner {
       // const args = ['--output', outputFilePath, targetDirectory];
       const args = [
         '--spec-version', '1.6',
-        '--deep',                       // ← Scan subdirectories
+        // '--deep',  // ← Removed: causes cdxgen to execute Maven which hangs
         '--output', outputFilePath,
         targetDirectory
       ];
@@ -109,7 +109,8 @@ class CdxgenScanner {
         },
         ignoreReturnCode: false,  // ← Let it throw on failure
         cwd: targetDirectory,
-        silent: !this.debugMode
+        silent: !this.debugMode,
+        timeout: 300000  // ← 5 minute timeout to prevent hanging
       };
 
       let exitCode = 0;
