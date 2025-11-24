@@ -35,7 +35,7 @@ inputs:
     description: 'Fail the action if secrets are detected'
     required: false
     default: 'true'
-  api_endpoint:
+  nt-api-endpoint:
     description: 'API endpoint URL for uploading scan results'
     required: false
     default: 'https://beta.neoTrak.io'
