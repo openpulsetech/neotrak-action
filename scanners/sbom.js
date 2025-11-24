@@ -82,8 +82,7 @@ class CdxgenScanner {
 
       // const args = ['--output', outputFilePath, targetDirectory];
       const args = [
-        '--spec-version', '1.6',
-        // '--deep',  // ← Removed: causes cdxgen to execute Maven which hangs
+        '--spec-version', '1.4',
         '--output', outputFilePath,
         targetDirectory
       ];
@@ -107,60 +106,20 @@ class CdxgenScanner {
             }
           }
         },
-        ignoreReturnCode: false,  // ← Let it throw on failure
+        ignoreReturnCode: true,
         cwd: targetDirectory,
-        silent: !this.debugMode,
-        timeout: 300000  // ← 5 minute timeout to prevent hanging
+        silent: !this.debugMode
       };
 
-      let exitCode = 0;
-      try {
-        exitCode = await exec.exec(this.binaryPath, args, options);
-        this.debugLog(`✅ SBOM generation completed with exit code: ${exitCode}`);
-      } catch (error) {
-        core.error(`❌ cdxgen command failed`);
-        core.error(`Stdout: ${stdoutOutput}`);
-        core.error(`Stderr: ${stderrOutput}`);
-        throw new Error(`SBOM generation command failed: ${error.message}`);
-      }
-
-      // Wait for file to be created (cdxgen may need time to flush)
-      const maxWaitTime = 10000; // 10 seconds
-      const checkInterval = 500; // 500ms
-      let waited = 0;
-
-      while (!fs.existsSync(fullOutputPath) && waited < maxWaitTime) {
-        this.debugLog(`⏳ Waiting for SBOM file to be created... (${waited}ms)`);
-        await new Promise(resolve => setTimeout(resolve, checkInterval));
-        waited += checkInterval;
-      }
+      const exitCode = await exec.exec(this.binaryPath, args, options);
+      this.debugLog(`✅ SBOM generation completed with exit code: ${exitCode}`);
 
       if (!fs.existsSync(fullOutputPath)) {
-        core.error(`❌ Output file not created after ${waited}ms: ${fullOutputPath}`);
-        core.error(`Working directory: ${process.cwd()}`);
-        core.error(`Target directory: ${targetDirectory}`);
-        core.error(`Expected output path: ${fullOutputPath}`);
+        core.error(`❌ Output file not created: ${fullOutputPath}`);
         core.error(`Stdout: ${stdoutOutput}`);
         core.error(`Stderr: ${stderrOutput}`);
-
-        // List files in target directory to debug
-        try {
-          const filesInDir = fs.readdirSync(targetDirectory);
-          core.error(`📁 Files in target directory: ${filesInDir.join(', ')}`);
-
-          // Check if sbom.json exists anywhere in the directory
-          const sbomFiles = filesInDir.filter(f => f.includes('sbom') || f.includes('bom-'));
-          if (sbomFiles.length > 0) {
-            core.error(`🔍 Found potential SBOM files: ${sbomFiles.join(', ')}`);
-          }
-        } catch (err) {
-          core.error(`❌ Could not list directory: ${err.message}`);
-        }
-
         throw new Error('SBOM generator did not generate output file');
       }
-
-      this.debugLog(`✅ SBOM file verified at: ${fullOutputPath}`);
 
       return fullOutputPath;
     } catch (error) {
