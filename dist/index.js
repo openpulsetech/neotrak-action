@@ -19114,12 +19114,38 @@ class CdxgenScanner {
       const exitCode = await exec.exec(this.binaryPath, args, options);
       this.debugLog(`✅ SBOM generation completed with exit code: ${exitCode}`);
 
-      if (!fs.existsSync(fullOutputPath)) {
-        core.error(`❌ Output file not created: ${fullOutputPath}`);
+      // Check if cdxgen actually succeeded
+      if (exitCode !== 0) {
+        core.error(`❌ cdxgen exited with non-zero code: ${exitCode}`);
         core.error(`Stdout: ${stdoutOutput}`);
         core.error(`Stderr: ${stderrOutput}`);
+        throw new Error(`SBOM generation failed with exit code ${exitCode}`);
+      }
+
+      // Wait for file to be created (cdxgen may need time to flush)
+      const maxWaitTime = 10000; // 10 seconds
+      const checkInterval = 500; // 500ms
+      let waited = 0;
+
+      while (!fs.existsSync(fullOutputPath) && waited < maxWaitTime) {
+        this.debugLog(`⏳ Waiting for SBOM file to be created... (${waited}ms)`);
+        await new Promise(resolve => setTimeout(resolve, checkInterval));
+        waited += checkInterval;
+      }
+
+      if (!fs.existsSync(fullOutputPath)) {
+        core.error(`❌ Output file not created after ${waited}ms: ${fullOutputPath}`);
+        core.error(`Stdout: ${stdoutOutput}`);
+        core.error(`Stderr: ${stderrOutput}`);
+
+        // List files in target directory to debug
+        const filesInDir = fs.readdirSync(targetDirectory);
+        core.error(`📁 Files in ${targetDirectory}: ${filesInDir.join(', ')}`);
+
         throw new Error('SBOM generator did not generate output file');
       }
+
+      this.debugLog(`✅ SBOM file verified at: ${fullOutputPath}`);
 
       return fullOutputPath;
     } catch (error) {
