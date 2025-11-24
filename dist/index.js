@@ -19081,7 +19081,7 @@ class CdxgenScanner {
 
       // const args = ['--output', outputFilePath, targetDirectory];
       const args = [
-        '--spec-version', '1.4',
+        '--spec-version', '1.6',
         '--deep',                       // ← Scan subdirectories
         '--output', outputFilePath,
         targetDirectory
