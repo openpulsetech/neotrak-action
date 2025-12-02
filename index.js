@@ -170,10 +170,10 @@ class SecurityOrchestrator {
           || 'NOT SET';
 
         // Get repository ID from GitHub context
-        const repositoryId = github.context.payload.repository?.id || null;
+        const scmRepoId = github.context.payload.repository?.id || null;
 
         // Get organization ID from GitHub context
-        const organizationId = github.context.payload.repository?.owner?.id
+        const scmOrgId = github.context.payload.repository?.owner?.id
           || github.context.payload.organization?.id
           || null;
 
@@ -216,14 +216,14 @@ class SecurityOrchestrator {
 
         core.info(`🌿 Running action on branch: ${branchName}`);
         core.info(`📦 Repository name: ${repoName}`);
-        if (repositoryId) core.info(`🆔 Repository ID: ${repositoryId}`);
-        if (organizationId) core.info(`🏢 Organization ID: ${organizationId}`);
+        if (scmRepoId) core.info(`🆔 SCM Repository ID: ${scmRepoId}`);
+        if (scmOrgId) core.info(`🏢 SCM Organization ID: ${scmOrgId}`);
         formData.append('branchName', branchName);
         formData.append('repoName', repoName);
         formData.append('source', process.env.CICD_SOURCE || 'github');
         if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
-        if (repositoryId) formData.append('repositoryId', repositoryId.toString());
-        if (organizationId) formData.append('organizationId', organizationId.toString());
+        if (scmRepoId) formData.append('scmRepoId', scmRepoId.toString());
+        if (scmOrgId) formData.append('scmOrgId', scmOrgId.toString());
 
         // ✅ 4. Headers (if authentication is used)
         const headers = {
@@ -245,8 +245,8 @@ class SecurityOrchestrator {
             repoName: repoName,
             source: 'github' || 'not set',
             jobId: process.env.JOB_ID || 'not set',
-            repositoryId: repositoryId || 'not set',
-            organizationId: organizationId || 'not set'
+            scmRepoId: scmRepoId || 'not set',
+            scmOrgId: scmOrgId || 'not set'
 
           }, null, 2)}`);
           this.debugLog(`\n📦 CombinedScanRequest Structure:`);
@@ -267,6 +267,8 @@ class SecurityOrchestrator {
           });
 
           this.debugLog(`  - scannerSecretResponse count: ${combinedScanRequest.scannerSecretResponse?.length || 0}`);
+          this.debugLog(`  - scmRepoId: ${scmRepoId || 'not set'}`);
+          this.debugLog(`  - scmOrgId: ${scmOrgId || 'not set'}`);
           this.debugLog(`\n📋 Full CombinedScanRequest JSON:`);
           this.debugLog(JSON.stringify(combinedScanRequest, null, 2));
         }
