@@ -169,6 +169,14 @@ class SecurityOrchestrator {
           || process.env.GITHUB_REPOSITORY?.split('/')[1]
           || 'NOT SET';
 
+        // Get repository ID from GitHub context
+        const repositoryId = github.context.payload.repository?.id || null;
+
+        // Get organization ID from GitHub context
+        const organizationId = github.context.payload.repository?.owner?.id
+          || github.context.payload.organization?.id
+          || null;
+
         // ✅ 1. Build CombinedScanRequest JSON structure matching API DTOs
         const combinedScanRequest = {
           configScanResponseDto: configResult?.configScanResponseDto || {
@@ -208,10 +216,14 @@ class SecurityOrchestrator {
 
         core.info(`🌿 Running action on branch: ${branchName}`);
         core.info(`📦 Repository name: ${repoName}`);
+        if (repositoryId) core.info(`🆔 Repository ID: ${repositoryId}`);
+        if (organizationId) core.info(`🏢 Organization ID: ${organizationId}`);
         formData.append('branchName', branchName);
         formData.append('repoName', repoName);
         formData.append('source', process.env.CICD_SOURCE || 'github');
         if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
+        if (repositoryId) formData.append('repositoryId', repositoryId.toString());
+        if (organizationId) formData.append('organizationId', organizationId.toString());
 
         // ✅ 4. Headers (if authentication is used)
         const headers = {
@@ -232,7 +244,9 @@ class SecurityOrchestrator {
             branchName: branchName,
             repoName: repoName,
             source: 'github' || 'not set',
-            jobId: process.env.JOB_ID || 'not set'
+            jobId: process.env.JOB_ID || 'not set',
+            repositoryId: repositoryId || 'not set',
+            organizationId: organizationId || 'not set'
 
           }, null, 2)}`);
           this.debugLog(`\n📦 CombinedScanRequest Structure:`);
