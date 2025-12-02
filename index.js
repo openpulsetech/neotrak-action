@@ -196,7 +196,9 @@ class SecurityOrchestrator {
             EndColumn: item.EndColumn || ''
           })),
           repoName: repoName,
-          branchName: branchName
+          branchName: branchName,
+          scmRepoId: scmRepoId,
+          scmOrgId: scmOrgId
         };
 
         // ✅ 2. Get SBOM file from Trivy/CDXGen result
