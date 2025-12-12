@@ -18,7 +18,6 @@ Before using this action, you need to:
 1. **Sign up for NeoTrack**: Create an account at [NeoTrack Platform](https://beta.neoTrak.io)
 2. **Obtain API Credentials**: Get your `NT_API_KEY` and `NT_SECRET_KEY` from the NeoTrack dashboard
 3. **Configure GitHub Secrets**: Add the required credentials to your repository's secrets
-4. **(Optional) Get Project ID**: Obtain your `PROJECT_ID` from the NeoTrack dashboard to associate scans with a specific project
 
 ## Quick Start
 
@@ -30,12 +29,19 @@ Navigate to your repository settings and add the following secrets:
 2. Click **New repository secret**
 3. Add the following environment variables as secrets:
 
-| Environment Variable | Description | Required |
+| Secrets | Description | Required |
 |---------------------|-------------|----------|
-| `PROJECT_ID` | Your NeoTrack project identifier | No |
 | `NT_API_KEY` | API key for authentication | Yes |
 | `NT_SECRET_KEY` | Secret key for authentication | Yes |
-| `DEBUG_MODE` | Enable debug logging (set to `true` or `false`) | No |
+
+### Input Parameters
+
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `severity` | Severity levels to report (comma-separated: CRITICAL, HIGH, MEDIUM, LOW) | `CRITICAL,HIGH,MEDIUM,LOW` | No |
+| `fail-on-vulnerability` | Fail the build if vulnerabilities are found | `true` | No |
+| `fail-on-misconfiguration` | Fail the build if misconfigurations are found | `true` | No |
+| `fail-on-secret` | Fail the build if secrets are detected | `true` | No |
 
 ### Step 2: Create Workflow File
 
@@ -69,10 +75,8 @@ jobs:
           fail-on-misconfiguration: 'false'
           fail-on-secret: 'false'
         env:
-          PROJECT_ID: ${{ secrets.PROJECT_ID }}
           NT_API_KEY: ${{ secrets.NT_API_KEY }}
           NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
-          DEBUG_MODE: ${{ secrets.DEBUG_MODE }}
 ```
 
 ### Step 3: Adding to Existing Workflow (Optional)
@@ -123,10 +127,8 @@ jobs:
           fail-on-misconfiguration: 'false'
           fail-on-secret: 'false'
         env:
-          PROJECT_ID: ${{ secrets.PROJECT_ID }}
           NT_API_KEY: ${{ secrets.NT_API_KEY }}
           NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
-          DEBUG_MODE: ${{ secrets.DEBUG_MODE }}
 ```
 
 **Option 2: Add as a step in existing job**
@@ -165,10 +167,8 @@ jobs:
           fail-on-misconfiguration: 'false'
           fail-on-secret: 'false'
         env:
-          PROJECT_ID: ${{ secrets.PROJECT_ID }}
           NT_API_KEY: ${{ secrets.NT_API_KEY }}
           NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
-          DEBUG_MODE: ${{ secrets.DEBUG_MODE }}
 
       # Continue with other steps
       - name: Run Tests
@@ -192,7 +192,6 @@ jobs:
           fail-on-misconfiguration: 'true'
           fail-on-secret: 'true'
         env:
-          PROJECT_ID: ${{ secrets.PROJECT_ID }}
           NT_API_KEY: ${{ secrets.NT_API_KEY }}
           NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
 
@@ -210,15 +209,6 @@ jobs:
 
 ## Configuration Options
 
-### Input Parameters
-
-| Parameter | Description | Default | Required |
-|-----------|-------------|---------|----------|
-| `severity` | Severity levels to report (comma-separated: CRITICAL, HIGH, MEDIUM, LOW) | `CRITICAL,HIGH,MEDIUM,LOW` | No |
-| `fail-on-vulnerability` | Fail the build if vulnerabilities are found | `true` | No |
-| `fail-on-misconfiguration` | Fail the build if misconfigurations are found | `true` | No |
-| `fail-on-secret` | Fail the build if secrets are detected | `true` | No |
-
 ### Environment Variables
 
 The following environment variables must be set using GitHub Secrets:
@@ -233,17 +223,6 @@ The following environment variables must be set using GitHub Secrets:
   - **Why needed**: Provides additional security layer for API authentication
   - **How to get**: Generated alongside your API key in NeoTrack account settings
 
-#### Optional Variables
-
-- **`PROJECT_ID`**: Your unique project identifier from NeoTrack
-  - **Why needed**: Associates scan results with your specific project on the NeoTrack platform for better organization and tracking
-  - **How to get**: Available in your NeoTrack dashboard after creating a project
-  - **Note**: If not provided, scans will still be uploaded but won't be associated with a specific project
-
-- **`DEBUG_MODE`**: Enable detailed debug logging (`true` or `false`)
-  - **Why needed**: Helps troubleshoot issues by providing verbose logging
-  - **Default**: `false`
-
 ## Usage Examples
 
 ### Example 1: Basic Security Scan
@@ -254,7 +233,6 @@ Scan your repository with default settings:
 - name: NeoTrack Security Scan
   uses: openpulsetech/neotrak-action@main
   env:
-    PROJECT_ID: ${{ secrets.PROJECT_ID }}
     NT_API_KEY: ${{ secrets.NT_API_KEY }}
     NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
 ```
@@ -270,7 +248,6 @@ Only report critical and high severity issues:
     severity: 'CRITICAL,HIGH'
     fail-on-vulnerability: 'true'
   env:
-    PROJECT_ID: ${{ secrets.PROJECT_ID }}
     NT_API_KEY: ${{ secrets.NT_API_KEY }}
     NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
 ```
@@ -287,26 +264,11 @@ Run scans without failing the build:
     fail-on-misconfiguration: 'false'
     fail-on-secret: 'false'
   env:
-    PROJECT_ID: ${{ secrets.PROJECT_ID }}
     NT_API_KEY: ${{ secrets.NT_API_KEY }}
     NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
 ```
 
-### Example 4: Debug Mode Enabled
-
-Enable debug logging for troubleshooting:
-
-```yaml
-- name: NeoTrack Security Scan
-  uses: openpulsetech/neotrak-action@main
-  env:
-    PROJECT_ID: ${{ secrets.PROJECT_ID }}
-    NT_API_KEY: ${{ secrets.NT_API_KEY }}
-    NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
-    DEBUG_MODE: 'true'
-```
-
-### Example 5: Complete Production Workflow
+### Example 4: Complete Production Workflow
 
 A comprehensive setup for production environments:
 
@@ -343,10 +305,8 @@ jobs:
           fail-on-misconfiguration: 'true'
           fail-on-secret: 'true'
         env:
-          PROJECT_ID: ${{ secrets.PROJECT_ID }}
           NT_API_KEY: ${{ secrets.NT_API_KEY }}
           NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
-          DEBUG_MODE: ${{ secrets.DEBUG_MODE }}
 
       - name: Upload Security Report
         if: always()
@@ -366,7 +326,7 @@ jobs:
 3. In the left sidebar, click **Secrets and variables** → **Actions**
 4. Click **New repository secret** button
 5. For each required secret:
-   - **Name**: Enter the secret name exactly as shown (e.g., `PROJECT_ID`)
+   - **Name**: Enter the secret name exactly as shown (e.g., `NT_API_KEY`)
    - **Value**: Paste the value from your NeoTrack dashboard
    - Click **Add secret**
 
@@ -441,9 +401,8 @@ Scan results are available in multiple locations:
 **Error**: `Upload failed: 401 Unauthorized`
 
 **Solution**:
-- Verify that `PROJECT_ID`, `NT_API_KEY`, and `NT_SECRET_KEY` are correctly set in GitHub Secrets
+- Verify that `NT_API_KEY` and `NT_SECRET_KEY` are correctly set in GitHub Secrets
 - Ensure the secrets are not expired
-- Check that you're using the correct project ID
 
 #### 2. Timeout Issues
 **Error**: `ETIMEDOUT` or `ECONNABORTED`
@@ -458,7 +417,6 @@ Scan results are available in multiple locations:
 
 **Solution**:
 - Ensure your project has dependencies to scan
-- Check that the scan-target path is correct
 - Verify the project contains recognizable package files (package.json, requirements.txt, etc.)
 
 #### 4. Missing Environment Variables
@@ -468,21 +426,6 @@ Scan results are available in multiple locations:
 - Double-check the secret names match exactly (case-sensitive)
 - Ensure secrets are added to the correct repository
 - Verify the workflow has permission to access the secrets
-
-### Debug Mode
-
-Enable debug mode to get detailed logs:
-
-```yaml
-env:
-  DEBUG_MODE: 'true'
-```
-
-This will output:
-- Detailed request/response information
-- File processing details
-- Scanner execution logs
-- API communication details
 
 ## Security Best Practices
 
