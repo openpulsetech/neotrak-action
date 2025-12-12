@@ -275,22 +275,7 @@ Only report critical and high severity issues:
     NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
 ```
 
-### Example 3: Scan Specific Directory
-
-Scan only a specific directory in your repository:
-
-```yaml
-- name: NeoTrack Security Scan
-  uses: openpulsetech/neotrak-action@main
-  with:
-    scan-target: './src'
-  env:
-    PROJECT_ID: ${{ secrets.PROJECT_ID }}
-    NT_API_KEY: ${{ secrets.NT_API_KEY }}
-    NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
-```
-
-### Example 4: Non-blocking Scan (Report Only)
+### Example 3: Non-blocking Scan (Report Only)
 
 Run scans without failing the build:
 
@@ -307,7 +292,7 @@ Run scans without failing the build:
     NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
 ```
 
-### Example 5: Debug Mode Enabled
+### Example 4: Debug Mode Enabled
 
 Enable debug logging for troubleshooting:
 
@@ -321,7 +306,7 @@ Enable debug logging for troubleshooting:
     DEBUG_MODE: 'true'
 ```
 
-### Example 6: Complete Production Workflow
+### Example 5: Complete Production Workflow
 
 A comprehensive setup for production environments:
 
@@ -353,7 +338,6 @@ jobs:
       - name: Run NeoTrack Security Scan
         uses: openpulsetech/neotrak-action@main
         with:
-          scan-target: '.'
           severity: 'CRITICAL,HIGH,MEDIUM,LOW'
           fail-on-vulnerability: 'true'
           fail-on-misconfiguration: 'true'
