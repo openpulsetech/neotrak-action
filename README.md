@@ -397,65 +397,31 @@ Scan results are available in multiple locations:
 
 ### Common Issues
 
-#### 1. Authentication Failures
-**Error**: `Upload failed: 401 Unauthorized`
-
-**Solution**:
-- Verify that `NT_API_KEY` and `NT_SECRET_KEY` are correctly set in GitHub Secrets
-- Ensure the secrets are not expired
-
-#### 2. Timeout Issues
-**Error**: `ETIMEDOUT` or `ECONNABORTED`
-
-**Solution**:
-- The action automatically retries up to 3 times
-- Check your network connectivity
-- Verify the NeoTrack API endpoint is accessible
-
-#### 3. SBOM File Not Found
-**Error**: `SBOM file not found — skipping upload`
-
-**Solution**:
-- Ensure your project has dependencies to scan
-- Verify the project contains recognizable package files (package.json, requirements.txt, etc.)
-
-#### 4. Missing Environment Variables
-**Error**: Variables not found or undefined
-
-**Solution**:
-- Double-check the secret names match exactly (case-sensitive)
-- Ensure secrets are added to the correct repository
-- Verify the workflow has permission to access the secrets
+| Issue | Error Message | Solution |
+|-------|--------------|----------|
+| **Authentication Failures** | `Upload failed: 401 Unauthorized` | • Verify that `NT_API_KEY` and `NT_SECRET_KEY` are correctly set in GitHub Secrets<br>• Ensure the secrets are not expired |
+| **Timeout Issues** | `ETIMEDOUT` or `ECONNABORTED` | • The action automatically retries up to 3 times<br>• Check your network connectivity<br>• Verify the NeoTrack API endpoint is accessible |
+| **SBOM File Not Found** | `SBOM file not found — skipping upload` | • Ensure your project has dependencies to scan<br>• Verify the project contains recognizable package files (package.json, requirements.txt, etc.) |
+| **Missing Environment Variables** | Variables not found or undefined | • Double-check the secret names match exactly (case-sensitive)<br>• Ensure secrets are added to the correct repository<br>• Verify the workflow has permission to access the secrets |
 
 ## Security Best Practices
 
-1. **Never commit secrets**: Always use GitHub Secrets for sensitive data
-2. **Use branch protection**: Require security scans to pass before merging
-3. **Schedule regular scans**: Set up cron jobs to scan daily or weekly
-4. **Review findings promptly**: Address critical and high severity issues quickly
-5. **Keep dependencies updated**: Regularly update to patch vulnerabilities
+| Best Practice | Description |
+|--------------|-------------|
+| **Never commit secrets** | Always use GitHub Secrets for sensitive data |
+| **Use branch protection** | Require security scans to pass before merging |
+| **Schedule regular scans** | Set up cron jobs to scan daily or weekly |
+| **Review findings promptly** | Address critical and high severity issues quickly |
+| **Keep dependencies updated** | Regularly update to patch vulnerabilities |
 
 ## Why Use NeoTrack Action?
 
-### Centralized Security Management
-- All scan results are uploaded to your NeoTrack dashboard
-- Track security trends over time
-- Compare security posture across multiple projects
-
-### Comprehensive Coverage
-- Multiple scanning engines in one action
-- Covers vulnerabilities, misconfigurations, and secrets
-- Generates SBOM for compliance requirements
-
-### Flexible Configuration
-- Choose which types of issues should fail the build
-- Configure severity thresholds
-- Scan specific directories or entire repository
-
-### Automated Workflow
-- Integrates seamlessly with GitHub Actions
-- Automatic PR comments for security findings
-- Schedule regular security scans
+| Feature | Benefits |
+|---------|----------|
+| **Centralized Security Management** | • All scan results are uploaded to your NeoTrack dashboard<br>• Track security trends over time<br>• Compare security posture across multiple projects |
+| **Comprehensive Coverage** | • Multiple scanning engines in one action<br>• Covers vulnerabilities, misconfigurations, and secrets<br>• Generates SBOM for compliance requirements |
+| **Flexible Configuration** | • Choose which types of issues should fail the build<br>• Configure severity thresholds<br>• Scan specific directories or entire repository |
+| **Automated Workflow** | • Integrates seamlessly with GitHub Actions<br>• Automatic PR comments for security findings<br>• Schedule regular security scans |
 
 ## Support
 
