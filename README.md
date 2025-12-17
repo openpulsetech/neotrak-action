@@ -1,45 +1,442 @@
-# NeoTrak Action
+# NeoTrack Security Scanner GitHub Action
 
-A comprehensive security scanning GitHub Action that integrates multiple security tools to provide thorough vulnerability and configuration analysis.
+A comprehensive security scanning GitHub Action that performs vulnerability scanning, configuration analysis, secret detection, and SBOM (Software Bill of Materials) generation for your projects.
 
 ## Features
 
-- **Trivy Scanner**: Container and filesystem vulnerability scanning
+- **Vulnerability Scanning**: Detect security vulnerabilities in dependencies and packages
+- **Configuration Analysis**: Identify misconfigurations in your infrastructure and application files
+- **Secret Detection**: Scan for exposed secrets, API keys, and credentials
+- **SBOM Generation**: Generate Software Bill of Materials for dependency tracking
+- **Automated Reporting**: Upload scan results to NeoTrack platform for centralized security management
+- **PR Comments**: Automatically post security scan results as comments on pull requests
 
+## Prerequisites
 
-## Usage
+Before using this action, you need to:
+
+1. **Sign up for NeoTrack**: Create an account at [NeoTrack Platform](https://beta.neoTrak.io)
+2. **Obtain API Credentials**: Get your `NT_API_KEY` and `NT_SECRET_KEY` from the NeoTrack dashboard
+3. **Configure GitHub Secrets**: Add the required credentials to your repository's secrets
+
+## Quick Start
+
+### Step 1: Add GitHub Secrets
+
+Navigate to your repository settings and add the following secrets:
+
+1. Go to **Settings** → **Secrets and variables** → **Actions**
+2. Click **New repository secret**
+3. Add the following environment variables as secrets:
+
+| Secrets | Description | Required |
+|---------------------|-------------|----------|
+| `NT_API_KEY` | API key for authentication | Yes |
+| `NT_SECRET_KEY` | Secret key for authentication | Yes |
+
+### Input Parameters
+
+| Parameter | Description | Default | Required |
+|-----------|-------------|---------|----------|
+| `severity` | Severity levels to report (comma-separated: CRITICAL, HIGH, MEDIUM, LOW) | `CRITICAL,HIGH,MEDIUM,LOW` | No |
+| `fail-on-vulnerability` | Fail the build if vulnerabilities are found | `true` | No |
+| `fail-on-misconfiguration` | Fail the build if misconfigurations are found | `true` | No |
+| `fail-on-secret` | Fail the build if secrets are detected | `true` | No |
+
+### Step 2: Create Workflow File
+
+Create a new file in your repository at `.github/workflows/example.yml`:
 
 ```yaml
-name: Security Scan
-on: [push, pull_request]
+name: NeoTrack Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
 
 jobs:
   security-scan:
+    name: Run Security Scan
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
       - name: NeoTrack Security Scan
-        uses: openpulsetech/neotrack-action@v1
+        uses: openpulsetech/neotrak-action@main
         with:
-          scan-type: 'all'
-          severity: 'medium,high,critical'
-          format: 'sarif'
+          fail-on-vulnerability: 'false'
+          fail-on-misconfiguration: 'false'
+          fail-on-secret: 'false'
+        env:
+          NT_API_KEY: ${{ secrets.NT_API_KEY }}
+          NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
 ```
 
-## Inputs
+### Step 3: Adding to Existing Workflow (Optional)
 
-| Input | Description | Required | Default |
-|-------|-------------|----------|---------|
-| `scan-type` | Type of scan to perform | No | `all` |
-| `severity` | Severity levels to report | No | `high,critical` |
-| `format` | Output format | No | `sarif` |
+If you already have a `.github/workflows/*.yml` file in your project, you can add the NeoTrack Security Scan as an additional step:
 
-## Outputs
+**Option 1: Add as a separate job**
 
-- `sarif-file`: Path to the generated SARIF file
-- `scan-results`: JSON summary of scan results
+```yaml
+# Your existing workflow file
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Your existing jobs
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: npm run build
+      # ... other build steps
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Tests
+        run: npm test
+      # ... other test steps
+
+  # Add NeoTrack security scan as a new job
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: NeoTrack Security Scan
+        uses: openpulsetech/neotrak-action@main
+        with:
+          fail-on-vulnerability: 'false'
+          fail-on-misconfiguration: 'false'
+          fail-on-secret: 'false'
+        env:
+          NT_API_KEY: ${{ secrets.NT_API_KEY }}
+          NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
+```
+
+**Option 2: Add as a step in existing job**
+
+```yaml
+# Your existing workflow file
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Your existing steps
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      # Add NeoTrack scan as an additional step
+      - name: NeoTrack Security Scan
+        uses: openpulsetech/neotrak-action@main
+        with:
+          fail-on-vulnerability: 'false'
+          fail-on-misconfiguration: 'false'
+          fail-on-secret: 'false'
+        env:
+          NT_API_KEY: ${{ secrets.NT_API_KEY }}
+          NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
+
+      # Continue with other steps
+      - name: Run Tests
+        run: npm test
+```
+
+**Option 3: Run scan before deployment**
+
+```yaml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Run security scan before deployment
+      - name: Security Check Before Deploy
+        uses: openpulsetech/neotrak-action@main
+        with:
+          fail-on-vulnerability: 'true'  # Fail deployment if vulnerabilities found
+          fail-on-misconfiguration: 'true'
+          fail-on-secret: 'true'
+        env:
+          NT_API_KEY: ${{ secrets.NT_API_KEY }}
+          NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
+
+      # Only deploy if security scan passes
+      - name: Deploy to Production
+        run: npm run deploy
+```
+
+**Best Practices for Existing Workflows:**
+
+1. **Separate Job** - Run security scans in parallel with other jobs for faster feedback
+2. **Before Deployment** - Always scan before deploying to production
+3. **Fail on Critical** - Set `fail-on-vulnerability: 'true'` for production branches
+4. **Report Only for PRs** - Set to `'false'` for pull requests to avoid blocking development
+
+## Configuration Options
+
+### Environment Variables
+
+The following environment variables must be set using GitHub Secrets:
+
+#### Required Variables
+
+- **`NT_API_KEY`**: Your NeoTrack API authentication key
+  - **Why needed**: Authenticates your requests to the NeoTrack API
+  - **How to get**: Generated in your NeoTrack account settings
+
+- **`NT_SECRET_KEY`**: Your NeoTrack secret key
+  - **Why needed**: Provides additional security layer for API authentication
+  - **How to get**: Generated alongside your API key in NeoTrack account settings
+
+## Usage Examples
+
+### Example 1: Basic Security Scan
+
+Scan your repository with default settings:
+
+```yaml
+- name: NeoTrack Security Scan
+  uses: openpulsetech/neotrak-action@main
+  env:
+    NT_API_KEY: ${{ secrets.NT_API_KEY }}
+    NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
+```
+
+### Example 2: Scan with Custom Severity Filter
+
+Only report critical and high severity issues:
+
+```yaml
+- name: NeoTrack Security Scan
+  uses: openpulsetech/neotrak-action@main
+  with:
+    severity: 'CRITICAL,HIGH'
+    fail-on-vulnerability: 'true'
+  env:
+    NT_API_KEY: ${{ secrets.NT_API_KEY }}
+    NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
+```
+
+### Example 3: Non-blocking Scan (Report Only)
+
+Run scans without failing the build:
+
+```yaml
+- name: NeoTrack Security Scan
+  uses: openpulsetech/neotrak-action@main
+  with:
+    fail-on-vulnerability: 'false'
+    fail-on-misconfiguration: 'false'
+    fail-on-secret: 'false'
+  env:
+    NT_API_KEY: ${{ secrets.NT_API_KEY }}
+    NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
+```
+
+### Example 4: Complete Production Workflow
+
+A comprehensive setup for production environments:
+
+```yaml
+name: Production Security Scan
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *'
+
+jobs:
+  security-scan:
+    name: NeoTrack Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run NeoTrack Security Scan
+        uses: openpulsetech/neotrak-action@main
+        with:
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          fail-on-vulnerability: 'true'
+          fail-on-misconfiguration: 'true'
+          fail-on-secret: 'true'
+        env:
+          NT_API_KEY: ${{ secrets.NT_API_KEY }}
+          NT_SECRET_KEY: ${{ secrets.NT_SECRET_KEY }}
+
+      - name: Upload Security Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: neotrak-security-report
+          path: neotrak-report.json
+          retention-days: 30
+```
+
+## How to Add Environment Variables
+
+### Method 1: Repository Secrets (Recommended)
+
+1. Navigate to your GitHub repository
+2. Click on **Settings** tab
+3. In the left sidebar, click **Secrets and variables** → **Actions**
+4. Click **New repository secret** button
+5. For each required secret:
+   - **Name**: Enter the secret name exactly as shown (e.g., `NT_API_KEY`)
+   - **Value**: Paste the value from your NeoTrack dashboard
+   - Click **Add secret**
+
+### Method 2: Environment Secrets (For Organization-wide use)
+
+1. Go to your Organization settings
+2. Click **Secrets and variables** → **Actions**
+3. Click **New organization secret**
+4. Add the secrets and select which repositories can access them
+
+### Method 3: Environment-specific Secrets
+
+1. In your repository, go to **Settings** → **Environments**
+2. Create or select an environment (e.g., "production", "staging")
+3. Add environment-specific secrets
+4. Update your workflow to reference the environment:
+
+```yaml
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    environment: production  # Add this line
+    steps:
+      # ... rest of your workflow
+```
+
+## Understanding the Scan Results
+
+The action generates comprehensive security reports including:
+
+### Vulnerability Report
+- Lists all detected vulnerabilities with severity levels
+- Shows affected packages and available fixes
+- Provides CVE identifiers for tracking
+
+### Misconfiguration Report
+- Identifies security misconfigurations in:
+  - Docker files
+  - Kubernetes manifests
+  - Terraform files
+  - Cloud configuration files
+  - Application configuration
+
+### Secret Detection Report
+- Detects exposed secrets including:
+  - API keys
+  - Access tokens
+  - Private keys
+  - Database credentials
+  - Cloud provider credentials
+
+### SBOM (Software Bill of Materials)
+- Complete inventory of software components
+- Dependency relationships
+- License information
+- Version tracking
+
+## Viewing Results
+
+Scan results are available in multiple locations:
+
+1. **GitHub Actions Log**: View detailed results in the workflow run logs
+2. **Pull Request Comments**: Automated comments on PRs with security findings
+3. **NeoTrack Dashboard**: Centralized view of all scans at [https://beta.neoTrak.io](https://beta.neoTrak.io)
+4. **Artifacts**: Download detailed reports from the Actions artifacts
+
+## Troubleshooting
+
+### Common Issues
+
+| Issue | Error Message | Solution |
+|-------|--------------|----------|
+| **Authentication Failures** | `Upload failed: 401 Unauthorized` | • Verify that `NT_API_KEY` and `NT_SECRET_KEY` are correctly set in GitHub Secrets<br>• Ensure the secrets are not expired |
+| **Timeout Issues** | `ETIMEDOUT` or `ECONNABORTED` | • The action automatically retries up to 3 times<br>• Check your network connectivity<br>• Verify the NeoTrack API endpoint is accessible |
+| **SBOM File Not Found** | `SBOM file not found — skipping upload` | • Ensure your project has dependencies to scan<br>• Verify the project contains recognizable package files (package.json, requirements.txt, etc.) |
+| **Missing Environment Variables** | Variables not found or undefined | • Double-check the secret names match exactly (case-sensitive)<br>• Ensure secrets are added to the correct repository<br>• Verify the workflow has permission to access the secrets |
+
+## Security Best Practices
+
+| Best Practice | Description |
+|--------------|-------------|
+| **Never commit secrets** | Always use GitHub Secrets for sensitive data |
+| **Use branch protection** | Require security scans to pass before merging |
+| **Schedule regular scans** | Set up cron jobs to scan daily or weekly |
+| **Review findings promptly** | Address critical and high severity issues quickly |
+| **Keep dependencies updated** | Regularly update to patch vulnerabilities |
+
+## Why Use NeoTrack Action?
+
+| Feature | Benefits |
+|---------|----------|
+| **Centralized Security Management** | • All scan results are uploaded to your NeoTrack dashboard<br>• Track security trends over time<br>• Compare security posture across multiple projects |
+| **Comprehensive Coverage** | • Multiple scanning engines in one action<br>• Covers vulnerabilities, misconfigurations, and secrets<br>• Generates SBOM for compliance requirements |
+| **Flexible Configuration** | • Choose which types of issues should fail the build<br>• Configure severity thresholds<br>• Scan specific directories or entire repository |
+| **Automated Workflow** | • Integrates seamlessly with GitHub Actions<br>• Automatic PR comments for security findings<br>• Schedule regular security scans |
+
+## Support
+
+- **Documentation**: [NeoTrack Documentation](https://beta.neoTrak.io/docs)
+- **Issues**: [GitHub Issues](https://github.com/openpulsetech/neotrak-action/issues)
+- **Email**: support@neotrak.io
 
 ## License
 
-MIT
-# neotrak-action
+MIT License - see LICENSE file for details
+
+## Contributing
+
+Contributions are welcome! Please read our contributing guidelines before submitting pull requests.
+
+---
+
+**Made with care by the NeoTrack Security Team**    
