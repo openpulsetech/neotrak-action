@@ -120,6 +120,56 @@ class CdxgenScanner {
         throw new Error('SBOM generator did not generate output file');
       }
 
+      // Validate SBOM file is not empty
+      const fileStats = fs.statSync(fullOutputPath);
+      if (fileStats.size === 0) {
+        core.error(`❌ Error: SBOM file is empty at ${fullOutputPath}`);
+        throw new Error('SBOM file is empty');
+      }
+
+      // Validate SBOM file contains valid JSON
+      let sbomData;
+      try {
+        const sbomContent = fs.readFileSync(fullOutputPath, 'utf8');
+        sbomData = JSON.parse(sbomContent);
+      } catch (parseError) {
+        core.error(`❌ Error: SBOM file contains invalid JSON - ${parseError.message}`);
+        throw new Error(`SBOM file contains invalid JSON: ${parseError.message}`);
+      }
+
+      // Validate SBOM has required CycloneDX structure
+      if (sbomData.bomFormat !== 'CycloneDX') {
+        core.error(`❌ Error: Invalid SBOM file - missing or incorrect bomFormat (expected "CycloneDX", got "${sbomData.bomFormat}")`);
+        throw new Error('Invalid SBOM format');
+      }
+
+      if (!sbomData.specVersion) {
+        core.error('❌ Error: Invalid SBOM file - missing specVersion field');
+        throw new Error('Invalid SBOM: missing specVersion');
+      }
+
+      if (sbomData.components === undefined || sbomData.components === null) {
+        core.error('❌ Error: Invalid SBOM file - missing components field');
+        core.error('   The SBOM must contain a components array to be valid for scanning');
+        throw new Error('Invalid SBOM: missing components field');
+      }
+
+      if (!Array.isArray(sbomData.components)) {
+        core.error('❌ Error: Invalid SBOM file - components must be an array');
+        throw new Error('Invalid SBOM: components must be an array');
+      }
+
+      if (sbomData.components.length === 0) {
+        core.error('❌ Error: Invalid SBOM file - components array is empty');
+        core.error('   No dependencies or components found in the project');
+        throw new Error('Invalid SBOM: no components found');
+      }
+
+      core.info(`✓ SBOM file validated successfully: ${fullOutputPath}`);
+      core.info(`  - Size: ${fileStats.size} bytes`);
+      core.info(`  - Format: ${sbomData.bomFormat} (version ${sbomData.specVersion})`);
+      core.info(`  - Components: ${sbomData.components.length}`);
+
       return fullOutputPath;
     } catch (error) {
       core.error(`❌ SBOM generation failed: ${error.message}`);
