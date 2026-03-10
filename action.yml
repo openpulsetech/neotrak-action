@@ -38,7 +38,7 @@ inputs:
   nt-api-endpoint:
     description: 'API endpoint URL for uploading scan results'
     required: false
-    default: 'https://beta.neoTrak.io'
+    default: 'https://app.neotrak.io'
 
 outputs:
   sarif-file:

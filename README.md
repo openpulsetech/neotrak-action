@@ -15,7 +15,7 @@ A comprehensive security scanning GitHub Action that performs vulnerability scan
 
 Before using this action, you need to:
 
-1. **Sign up for NeoTrack**: Create an account at [NeoTrack Platform](https://beta.neoTrak.io)
+1. **Sign up for NeoTrack**: Create an account at [NeoTrack Platform](https://app.neotrak.io)
 2. **Obtain API Credentials**: Get your `NT_API_KEY` and `NT_SECRET_KEY` from the NeoTrack dashboard
 3. **Configure GitHub Secrets**: Add the required credentials to your repository's secrets
 
@@ -390,7 +390,7 @@ Scan results are available in multiple locations:
 
 1. **GitHub Actions Log**: View detailed results in the workflow run logs
 2. **Pull Request Comments**: Automated comments on PRs with security findings
-3. **NeoTrack Dashboard**: Centralized view of all scans at [https://beta.neoTrak.io](https://beta.neoTrak.io)
+3. **NeoTrack Dashboard**: Centralized view of all scans at [https://app.neotrak.io](https://app.neotrak.io)
 4. **Artifacts**: Download detailed reports from the Actions artifacts
 
 ## Troubleshooting
@@ -425,7 +425,7 @@ Scan results are available in multiple locations:
 
 ## Support
 
-- **Documentation**: [NeoTrack Documentation](https://beta.neoTrak.io/docs)
+- **Documentation**: [NeoTrack Documentation](https://app.neotrak.io/docs)
 - **Issues**: [GitHub Issues](https://github.com/openpulsetech/neotrak-action/issues)
 - **Email**: support@neotrak.io
 
