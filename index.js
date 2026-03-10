@@ -177,6 +177,12 @@ class SecurityOrchestrator {
           || github.context.payload.organization?.id
           || null;
 
+        // Get username from GitHub context (actor who triggered the workflow)
+        const username = core.getInput('username')
+          || github.context.actor
+          || process.env.GITHUB_ACTOR
+          || 'NOT SET';
+
         // ✅ 1. Build CombinedScanRequest JSON structure matching API DTOs
         const combinedScanRequest = {
           configScanResponseDto: configResult?.configScanResponseDto || {
@@ -198,7 +204,8 @@ class SecurityOrchestrator {
           repoName: repoName,
           branchName: branchName,
           scmRepoId: scmRepoId,
-          scmOrgId: scmOrgId
+          scmOrgId: scmOrgId,
+          username: username
         };
 
         // ✅ 2. Get SBOM file from Trivy/CDXGen result
@@ -218,10 +225,12 @@ class SecurityOrchestrator {
 
         core.info(`🌿 Running action on branch: ${branchName}`);
         core.info(`📦 Repository name: ${repoName}`);
+        core.info(`👤 Username: ${username}`);
         if (scmRepoId) core.info(`🆔 SCM Repository ID: ${scmRepoId}`);
         if (scmOrgId) core.info(`🏢 SCM Organization ID: ${scmOrgId}`);
         formData.append('branchName', branchName);
         formData.append('repoName', repoName);
+        formData.append('username', username);
         formData.append('source', process.env.CICD_SOURCE || 'github');
         if (process.env.JOB_ID) formData.append('jobId', process.env.JOB_ID);
         if (scmRepoId) formData.append('scmRepoId', scmRepoId.toString());
@@ -245,6 +254,7 @@ class SecurityOrchestrator {
             displayName: process.env.DISPLAY_NAME || 'sbom',
             branchName: branchName,
             repoName: repoName,
+            username: username,
             source: 'github' || 'not set',
             jobId: process.env.JOB_ID || 'not set',
             scmRepoId: scmRepoId || 'not set',
