@@ -15755,7 +15755,7 @@ const os = __webpack_require__(857);
 const path = __webpack_require__(6928);
 
 // Trivy scanner configuration
-const TRIVY_VERSION = 'v0.48.0';
+const TRIVY_VERSION = 'v0.69.3';
 const SCANNER_BINARY = 'neotrak-scanner-trivy';
 
 class TrivyScanner {
@@ -15783,16 +15783,26 @@ class TrivyScanner {
       this.setupLocalEnvironment();
       
       const platform = os.platform();
-      const arch = os.arch() === 'x64' ? 'amd64' : os.arch();
+      // const arch = os.arch() === 'x64' ? 'amd64' : os.arch();
+      let arch = os.arch();
+
+if (arch === 'x64') {
+  arch = '64bit';
+} else if (arch === 'arm64') {
+  arch = 'ARM64';
+}
       
       let downloadUrl;
       
       if (platform === 'linux') {
-        downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v', '')}_Linux-${arch === 'amd64' ? '64bit' : 'ARM64'}.tar.gz`;
+        // downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v', '')}_Linux-${arch === 'amd64' ? '64bit' : 'ARM64'}.tar.gz`;
+      downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v','')}_Linux-${arch}.tar.gz`;
       } else if (platform === 'darwin') {
-        downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v', '')}_macOS-${arch === 'amd64' ? '64bit' : 'ARM64'}.tar.gz`;
+        // downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v', '')}_macOS-${arch === 'amd64' ? '64bit' : 'ARM64'}.tar.gz`;
+      downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v','')}_macOS-${arch}.tar.gz`;
       } else if (platform === 'win32') {
-        downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v', '')}_windows-${arch === 'amd64' ? '64bit' : 'ARM64'}.zip`;
+        // downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v', '')}_windows-${arch === 'amd64' ? '64bit' : 'ARM64'}.zip`;
+      downloadUrl = `https://github.com/aquasecurity/trivy/releases/download/${TRIVY_VERSION}/trivy_${TRIVY_VERSION.replace('v','')}_Windows-${arch}.zip`;
       }
       
       core.debug(`Downloading from: ${downloadUrl}`);
