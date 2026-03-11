@@ -183,6 +183,7 @@ class SecurityOrchestrator {
           || process.env.GITHUB_ACTOR
           || 'NOT SET';
 
+        console.log('username: ', username);
         // ✅ 1. Build CombinedScanRequest JSON structure matching API DTOs
         const combinedScanRequest = {
           configScanResponseDto: configResult?.configScanResponseDto || {
